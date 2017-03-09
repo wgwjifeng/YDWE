@@ -21,45 +21,37 @@ end
 -- 返回：一个table，数组形式，包含所有需要注入的文件名（注意不是fs.path）
 function inject_code:detect(op)	
 	-- 结果变量
-	local inject_code = nil
-	
+	local r = {}
 	-- 读入所有文本
 	local s, e = io.load(op.input)
 	-- 文件存在
 	if s then
-		-- 结果
-		inject_code = {}
-
 		-- 检查是否有需要注入的函数
 		local all_table = op.option.runtime_version:is_new() and self.new_table or self.old_table		
 
-		for file, function_table in pairs(all_table) do	
-			for _, function_name in ipairs(function_table) do
-				if s:find(function_name) then
-					table.insert(inject_code, file)
-					break
-				end
+		for function_name, file in pairs(all_table) do	
+			if not r[file] and s:find(function_name) then
+				r[file] = true
 			end
 		end
 	else
 		log.error("Error occured when opening map script.")
 		log.error(e)
 	end
-	
-	return inject_code
+	return r
 end
 
 -- 注入代码到Jass代码文件（最常见的是war3map.j）中
 -- op.output - war3map.j的路径，fs.path对象
--- inject_code_path_table - 所有需要注入的代码文件路径，table，table中可以是
+-- tbl - 所有需要注入的代码文件路径，table，table中可以是
 -- 		string - 此时为YDWE / "jass" 目录下的对应名称的文件
 --		fs.path - 此时取其路径
 -- 注：该table必须是数组形式的，哈希表形式的不处理
 -- 返回值：0 - 成功；-1 - 出错失败；1 - 什么都没做
-function inject_code:do_inject(op, inject_code_path_table)
+function inject_code:do_inject(op, tbl)
 	-- 结果
 	local result = 1
-	if inject_code_path_table and #inject_code_path_table > 0 then
+	if tbl and next(tbl) then
 		-- 默认成功
 		result = 0
 		log.trace("Writing code to " .. op.output:filename():string())
@@ -67,22 +59,10 @@ function inject_code:do_inject(op, inject_code_path_table)
 		-- 打开文件供写入（追加模式）
 		local map_script_file, e = io.open(op.output, "a+b")
 		if map_script_file then
-
 			-- 循环处理每个需要注入的文件
-			for index, inject_code_path in ipairs(inject_code_path_table) do
-				local inject_code_path_string = nil
-				if type(inject_code_path) == "string" then
-					if inject_code_path:find("\\") or inject_code_path:find("/") then
-						inject_code_path_string = fs.path(inject_code_path)
-					else
-						inject_code_path_string = fs.ydwe_path() / "jass" / inject_code_path
-					end
-				else
-					inject_code_path_string = fs.path(inject_code_path)
-				end
-
-				log.trace("Injecting " .. inject_code_path_string:string())
-				local code_content, e = io.load(inject_code_path_string)
+			for path in pairs(tbl) do
+				log.trace("Injecting " .. path:string())
+				local code_content, e = io.load(path)
 				if code_content then
 					-- 插入代码到原文件最后
 					map_script_file:write(code_content)
@@ -123,9 +103,9 @@ end
 function inject_code:scan(config_dir)
 	local counter = 0
 	log.trace("Scanning for inject files in " .. config_dir:string())
-
+	local once = {}
 	-- 遍历目录
-	for  full_path in config_dir:list_directory() do		
+	for full_path in config_dir:list_directory() do		
 		if fs.is_directory(full_path) then
 			-- 递归处理
 			counter = counter + self:scan(full_path)
@@ -164,18 +144,31 @@ function inject_code:scan(config_dir)
 				end
 			end
 
-			
 			-- 插入全局表中（替换文件扩展名）
 			local substitution = full_path
 			substitution = substitution:replace_extension(fs.path(".j"))
-			if #old_table > 0 then
-				self.old_table[substitution] = old_table
+			local function insert(file, a, b)
+				for _, fname in ipairs(a) do
+					if b[fname] then
+						local unuse = file
+						log.warn('注入函数['..fname..']重复定义')
+						if fs.last_write_time(file) > fs.last_write_time(b[fname]) then
+							unuse = b[fname]
+							b[fname] = file
+						end
+						if not once[fname] then
+							log.warn('注入函数['..fname..']重复定义')
+							log.warn('	生效', b[fname], fs.last_write_time(b[fname]))
+							log.warn('	失效', unuse, fs.last_write_time(unuse) )
+							once[fname] = true
+						end
+					else
+						b[fname] = file
+					end
+				end
 			end
-
-			if #new_table > 0 then
-				self.new_table[substitution] = new_table
-			end
-
+			insert(substitution, old_table, self.old_table)
+			insert(substitution, new_table, self.new_table)
 			counter = counter + 1
 		end
 	end
