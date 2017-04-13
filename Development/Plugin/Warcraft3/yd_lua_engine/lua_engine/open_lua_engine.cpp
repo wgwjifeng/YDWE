@@ -22,7 +22,7 @@ namespace base { namespace warcraft3 { namespace lua_engine {
 	namespace bignum { int open(lua_State* L); }
 	namespace log { int open(lua_State* L); }
 
-	int fix_math(lua_State* L);
+	int fix_baselib(lua_State* L);
 
 	void register_preload_lib(lua_State* L, const char *name, lua_CFunction f)
 	{
@@ -30,38 +30,6 @@ namespace base { namespace warcraft3 { namespace lua_engine {
 		lua_pushcclosure(L, f, 0);
 		lua_setfield(L, -2, name);
 		lua_pop(L, 1);
-	}
-
-	int fix_baselib(lua_State* L)
-	{
-		fix_math(L);
-
-		lua_getglobal(L, "os");
-		if (lua_istable(L, -1))
-		{
-			lua_pushstring(L, "execute");   lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "exit");      lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "getenv");    lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "remove");    lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "rename");    lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "setlocale"); lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "tmpname");   lua_pushnil(L); lua_rawset(L, -3);
-		}
-		lua_pop(L, 1);
-
-		lua_getglobal(L, "package");
-		if (lua_istable(L, -1))
-		{
-			lua_pushstring(L, "loadlib");   lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "searchpath");lua_pushnil(L); lua_rawset(L, -3);
-		}
-		lua_pop(L, 1);
-
-		lua_pushnil(L);
-		lua_setglobal(L, "dofile");
-		lua_pushnil(L);
-		lua_setglobal(L, "loadfile");
-		return 0;
 	}
 
 	int open_lua_engine(lua_State* L)
