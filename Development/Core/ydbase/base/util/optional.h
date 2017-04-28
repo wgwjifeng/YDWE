@@ -1,5 +1,7 @@
 #pragma once
 
+#include <yvals.h>
+
 #if _HAS_CXX17
 
 #include <optional>
