@@ -144,17 +144,30 @@ local function copy_crt_dll()
     end
 end
 
+local function copy_ucrt_dll()
+    if configuration ~= 'Release' then
+        return
+    end
+    copy_directory(msvc:sdkpath() / 'Redist' / 'ucrt' / 'DLLs' / 'x86', path.Result / 'bin', function(path)
+        local ext = path:extension():string():lower()
+        return ext == '.dll'
+    end)
+end
+
 fs.create_directories(path.Result / 'bin' / 'modules')
 fs.create_directories(path.Result / 'plugin' / 'jasshelper' / 'bin')
 copy_crt_dll()
 if tonumber(msvc.version) < 150 then
 	copy_boost_dll('system')
 	copy_boost_dll('filesystem')
+else
+	copy_ucrt_dll()
 end
 fs.copy_file(path.OpenSource / 'Lua' / 'build' / 'bin' / configuration / 'luacore.dll', path.Result / 'bin' / 'luacore.dll', true)
 fs.copy_file(path.OpenSource / 'StormLib' / 'bin' / 'Win32' / configuration / 'StormLib.dll', path.Result / 'bin' / 'StormLib.dll', true)
 fs.copy_file(path.OpenSource / 'minizip' / 'bin' / configuration / 'minizip.dll', path.Result / 'bin' / 'minizip.dll', true)
 fs.copy_file(path.OpenSource / 'luaffi' / 'bin' / configuration / 'ffi.dll', path.Result / 'bin' / 'modules' / 'ffi.dll', true)
+fs.copy_file(path.OpenSource / 'lpeg' / 'bin' / configuration / 'lpeg.dll', path.Result / 'bin' / 'modules' / 'lpeg.dll', true)
 fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'plugin' / 'jasshelper' / 'sfmpq.dll', true)
 fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'plugin' / 'jasshelper' / 'bin' / 'sfmpq.dll', true)
 copy_directory(path.Development / 'Component', path.Result)

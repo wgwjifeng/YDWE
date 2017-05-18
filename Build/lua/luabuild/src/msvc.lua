@@ -79,13 +79,19 @@ end
 
 function mt:crtpath()
     if self.version >= 150 then
-        if self:fullversion() >= '14.10.25017' then
-	        return self.__path / 'VC' / 'Redist' / 'MSVC' / self:fullversion() / 'onecore' / 'x86' / ('Microsoft.VC' .. self.version .. '.CRT')
+	    local fullversion = self:fullversion()
+        if fullversion == '14.10.25017' then
+	        fullversion = '14.10.25008'
         end
-	    return self.__path / 'VC' / 'Redist' / 'MSVC' / self:fullversion() / 'x86' / ('Microsoft.VC' .. self.version .. '.CRT')
+        return self.__path / 'VC' / 'Redist' / 'MSVC' / fullversion / 'x86' / ('Microsoft.VC' .. self.version .. '.CRT')
     else
 	    return self.__path / 'VC' / 'Redist' / 'x86' / ('Microsoft.VC' .. self.version .. '.CRT')
     end
+end
+
+function mt:sdkpath()
+	local reg = registry.open [[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Kits\Installed Roots]]
+    return fs.path(reg.KitsRoot10)
 end
 
 function mt:rebuild(solution, configuration, platform)

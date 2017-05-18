@@ -57,33 +57,36 @@ namespace base { namespace warcraft3 { namespace jass {
 		};
 #pragma pack(pop)
 
-		func_mapping initialize_mapping_from_register()
+	}
+
+	func_mapping initialize_mapping(const char* startfunc)
+	{
+		func_mapping m;
+
+		uintptr_t start = get_war3_searcher().search_string(startfunc);
+		if (start)
 		{
-			func_mapping m;
-
-			uintptr_t ptr_Deg2Rad = get_war3_searcher().search_string("Deg2Rad");
-			if (ptr_Deg2Rad)
+			for (detail::asm_register_native_function* ptr = (detail::asm_register_native_function*)(start - 6); ptr->verify(); ++ptr)
 			{
-				for (asm_register_native_function* ptr = (asm_register_native_function*)(ptr_Deg2Rad - 6); ptr->verify(); ++ptr)
-				{
-					m.insert(std::make_pair(ptr->get_name(), func_value(ptr->get_param(), ptr->get_address())));
-				}
+				m.insert(std::make_pair(ptr->get_name(), func_value(ptr->get_param(), ptr->get_address())));
 			}
-
-			return std::move(m);
 		}
+
+		return std::move(m);
 	}
 
 	func_value::func_value()
 		: return_(TYPE_NONE)
 		, param_()
 		, address_(0)
+		, has_sleep_(false)
 	{ }
 
 	func_value::func_value(const char* param, uintptr_t address)
 		: return_(TYPE_NONE)
 		, param_()
 		, address_(address)
+		, has_sleep_(false)
 	{
 		if (!param || param[0] != '(')
 		{
@@ -117,6 +120,7 @@ namespace base { namespace warcraft3 { namespace jass {
 		: return_(that.return_)
 		, param_(that.param_)
 		, address_(address)
+		, has_sleep_(false)
 	{ }
 
 	bool func_value::is_valid() const
@@ -150,6 +154,16 @@ namespace base { namespace warcraft3 { namespace jass {
 		return call(param.data());
 	}
 
+	bool func_value::has_sleep() const
+	{
+		return has_sleep_;
+	}
+
+	void func_value::set_sleep(bool v)
+	{
+		has_sleep_ = v;
+	}
+
 	func_mapping jass_function;
 	func_mapping japi_function;
 
@@ -162,7 +176,7 @@ namespace base { namespace warcraft3 { namespace jass {
 
 		DO_ONCE_NOTHREADSAFE()
 		{
-			jass_function = detail::initialize_mapping_from_register();
+			jass_function = initialize_mapping("Deg2Rad");
 		}
 
 		auto it = jass_function.find(proc_name);

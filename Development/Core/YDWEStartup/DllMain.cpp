@@ -13,6 +13,7 @@
 #include <base/win/file_version.h>
 #include <base/win/process.h>
 #include <base/warcraft3/directory.h>
+#include <base/warcraft3/command_line.h>
 #include <base/util/format.h>	 
 #include <base/util/ini.h>
 #include "Splash.h"
@@ -211,9 +212,6 @@ static void DoTask()
 		}
 	}
 
-	CheckedCopyFile(gExecutableDirectory / L"bin" / "msvcp120.dll", gWarcraftDirectory / "msvcp120.dll");
-	CheckedCopyFile(gExecutableDirectory / L"bin" / "msvcr120.dll", gWarcraftDirectory / "msvcr120.dll");
-
 	// Prefered path
 	fs::path worldeditPreferredPath = gWarcraftDirectory / L"worldeditydwe.exe";
 	// Attached path
@@ -245,6 +243,15 @@ static void DoTask()
 
 INT WINAPI YDWEStartup(HINSTANCE current, HINSTANCE previous, LPSTR pCommandLine, INT showType)
 {
+	base::warcraft3::command_line cmd;
+
+	if (cmd.has(L"war3"))
+	{
+		bool launch_warcraft3(base::warcraft3::command_line&);
+		launch_warcraft3(cmd);
+		return 0;
+	}
+
 	INT exitCode = -1;
 
 	try

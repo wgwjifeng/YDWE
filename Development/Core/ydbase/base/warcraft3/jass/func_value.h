@@ -1,9 +1,10 @@
 #pragma once
 
 #include <base/config.h>
-#include <cstdint>
+#include <stdint.h>
 #include <vector>
 #include <unordered_map>
+#include <string>
 
 namespace base { namespace warcraft3 { namespace jass {
 
@@ -31,6 +32,8 @@ namespace base { namespace warcraft3 { namespace jass {
 		std::vector<variable_type> const& get_param()   const;
 		variable_type const&              get_return()  const;
 		uintptr_t                         get_address() const;
+		bool                              has_sleep() const;
+		void                              set_sleep(bool v);
 
 		template <class R>
 		void call_assert(size_t param_count) const
@@ -50,6 +53,7 @@ namespace base { namespace warcraft3 { namespace jass {
 		std::vector<variable_type> param_;
 #pragma warning(pop)
 		uintptr_t                  address_;
+		bool                       has_sleep_;
 	};
 
 	typedef std::unordered_map<std::string, func_value> func_mapping;
@@ -61,4 +65,5 @@ namespace base { namespace warcraft3 { namespace jass {
 	/*_BASE_API*/ bool japi_func_add(const char* proc_name, uintptr_t new_proc);
 	/*_BASE_API*/ bool japi_func_add(const char* proc_name, uintptr_t new_proc, const char* param);
 	/*_BASE_API*/ bool japi_func_remove(const char* proc_name);
+	_BASE_API func_mapping initialize_mapping(const char* startfunc);
 }}}

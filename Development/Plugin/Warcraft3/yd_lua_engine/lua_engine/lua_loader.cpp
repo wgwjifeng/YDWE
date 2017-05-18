@@ -4,7 +4,6 @@
 #include "storm.h"
 #include "open_lua_engine.h"
 #include "libs_runtime.h"
-#include "debugger.h"
 #include <lua.hpp>
 #include <base/warcraft3/event.h>
 #include <base/warcraft3/jass.h>
@@ -16,10 +15,7 @@
 #include <base/util/string_view.h>	
 #include <base/util/string_algorithm.h>
 
-namespace base { namespace warcraft3 { namespace lua_engine {
-	class debugger;
-namespace lua_loader {
-
+namespace base { namespace warcraft3 { namespace lua_engine { namespace lua_loader {
 
 	class jass_state
 	{
@@ -29,11 +25,6 @@ namespace lua_loader {
 		{
 			register_game_reset_event([this](uintptr_t)
 			{
-				if (dbg_)
-				{
-					debugger_close(dbg_);
-					dbg_ = nullptr;
-				}
 				if (state_)
 				{
 					lua_close(state_);
@@ -44,8 +35,10 @@ namespace lua_loader {
 
 		lua_State* get()
 		{
-			if (!state_) state_ = initialize();
-			dbg_ = debugger_create(state_);
+			if (!state_) {
+				state_ = initialize();
+				luaL_dostring(state_, "(require 'jass.debugger').listen('127.0.0.1', 4278)");
+			}
 			return state_;
 		}
 
@@ -62,7 +55,6 @@ namespace lua_loader {
 
 	private:
 		lua_State* state_; 
-		debugger* dbg_;
 	};
 	typedef singleton_nonthreadsafe<jass_state> jass_state_s;
 

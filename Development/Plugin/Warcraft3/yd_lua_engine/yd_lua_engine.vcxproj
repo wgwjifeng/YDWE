@@ -90,12 +90,10 @@
     <ClCompile Include="lua_engine\class_array.cpp" />
     <ClCompile Include="lua_engine\class_handle.cpp" />
     <ClCompile Include="lua_engine\class_real.cpp" />
-    <ClCompile Include="lua_engine\debugger.cpp" />
-    <ClInclude Include="lua_engine\debugger.h">
-      <FileType>CppCode</FileType>
-    </ClInclude>
+    <ClCompile Include="lua_engine\libs_debugger.cpp" />
     <ClCompile Include="lua_engine\fix_baselib.cpp" />
     <ClCompile Include="lua_engine\jassbind.cpp" />
+    <ClCompile Include="lua_engine\libs_ai.cpp" />
     <ClCompile Include="lua_engine\libs_common.cpp" />
     <ClCompile Include="lua_engine\libs_console.cpp" />
     <ClCompile Include="lua_engine\libs_bignum.cpp" />
@@ -107,6 +105,7 @@
     <ClCompile Include="lua_engine\libs_message.cpp" />
     <ClCompile Include="lua_engine\libs_package.cpp" />
     <ClCompile Include="lua_engine\libs_runtime.cpp" />
+    <ClCompile Include="lua_engine\libs_selector.cpp" />
     <ClCompile Include="lua_engine\libs_slk.cpp" />
     <ClCompile Include="lua_engine\libs_storm.cpp" />
     <ClCompile Include="lua_engine\lua_helper.cpp" />
