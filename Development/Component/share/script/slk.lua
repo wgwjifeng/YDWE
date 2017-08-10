@@ -25,10 +25,13 @@ local function try_value(t, key)
     if not t then
         return nil, nil, nil
     end
+    key = key:lower()
+    if key == 'code' then
+        return 'code', t._code, nil
+    end
     if key:sub(1, 1) == '_' then
         return nil, nil, nil
     end
-    key = key:lower()
     local value = t[key]
     if value then
         if type(value) == 'table' then
@@ -248,6 +251,9 @@ local function create_object(t, ttype, name)
                 return key .. olevel, t[nkey][olevel] or ''
             end
             nkey = next(t, nkey)
+            if nkey == '_code' then
+                return 'code', t._code
+            end
             local meta
             while true do
                 if not nkey then
@@ -366,6 +372,8 @@ local function set_config()
     config.target_format = 'obj'
     -- 是否分析slk文件
     config.read_slk = false
+    -- 是否分析lni文件
+    config.read_lni = false
     -- 分析slk时寻找id最优解的次数,0表示无限,寻找次数越多速度越慢
     config.find_id_times = 0
     -- 移除与模板完全相同的数据
