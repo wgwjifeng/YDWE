@@ -69,6 +69,36 @@ namespace base { namespace warcraft3 { namespace lua_engine {
 		return 0;
 	}
 
+	namespace package {
+		int searcher_preload(lua_State *L);
+		int searcher_lua(lua_State *L);
+		int searcher_dll(lua_State *L);
+		const char *searchpath(lua_State *L, const char *name, const char *path, const char *sep, const char *dirsep, bool is_local = true);
+	}
+
+	int package_searchers(lua_State* L)
+	{
+		lua_newtable(L);
+		lua_pushcclosure(L, package::searcher_preload, 0);
+		lua_rawseti(L, -2, 1);
+		lua_pushvalue(L, -3);
+		lua_pushcclosure(L, package::searcher_lua, 1);
+		lua_rawseti(L, -2, 2);
+		lua_pushvalue(L, -3);
+		lua_pushcclosure(L, package::searcher_dll, 1);
+		lua_rawseti(L, -2, 3);
+		return 1;
+	}
+
+	int package_searchpath(lua_State* L)
+	{
+		const char* f = package::searchpath(L, luaL_checkstring(L, 1), luaL_checkstring(L, 2), luaL_optstring(L, 3, "."), luaL_optstring(L, 4, LUA_DIRSEP));
+		if (f != NULL) return 1;
+		lua_pushnil(L);
+		lua_insert(L, -2);
+		return 2;
+	}
+
 	static int io_fclose(lua_State *L) {
 		luaL_Stream *p = ((luaL_Stream *)luaL_checkudata(L, 1, LUA_FILEHANDLE));
 		int res = fclose(p->f);
@@ -257,7 +287,10 @@ namespace base { namespace warcraft3 { namespace lua_engine {
 		if (lua_getglobal(L, "package") == LUA_TTABLE)
 		{
 			lua_pushstring(L, "loadlib");   lua_pushnil(L); lua_rawset(L, -3);
-			lua_pushstring(L, "searchpath"); lua_pushnil(L); lua_rawset(L, -3);
+			lua_pushstring(L, "searchpath"); lua_pushcclosure(L, package_searchpath, 0); lua_rawset(L, -3);
+			lua_pushstring(L, "searchers"); package_searchers(L);  lua_rawset(L, -3);
+			lua_pushstring(L, "path");      lua_pushstring(L, "?.lua"); lua_rawset(L, -3);
+			lua_pushstring(L, "cpath");     lua_pushstring(L, "?.dll"); lua_rawset(L, -3);
 		}
 		lua_pop(L, 1);
 

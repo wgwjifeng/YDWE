@@ -1,9 +1,20 @@
 #pragma once
 
-#include "Buffer.h"
+#include <vector>
 
-namespace IMAGE
-{
-	bool Blp2Bmp(const BUFFER& SourceBuffer, BUFFER& TargetBuffer);
-	bool Bmp2Blp(const BUFFER& SourceBuffer, BUFFER& TargetBuffer);
+namespace IMAGE {
+	typedef std::vector<unsigned char> BUFFER;
+
+	namespace BLP {
+		bool Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int Height, int Quality);
+		bool Read(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int* Width = NULL, int* Height = NULL);
+	}
+	namespace BMP {
+		bool Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int Height, int Quality);
+		bool Read(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int* Width = NULL, int* Height = NULL);
+	}
+	namespace JPEG {
+		bool Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int Height, int Quality);
+		bool Read(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, unsigned int Width, unsigned int Height);
+	}
 }

@@ -8,7 +8,6 @@
 #include <base/warcraft3/jass.h>	
 #include <base/warcraft3/event.h>
 #include <BlpConv/BlpConv.h>
-#include <BlpConv/Blp.h>
 #include <algorithm>
 #include <map>
 #include <stdint.h>
@@ -17,6 +16,14 @@ namespace base { namespace warcraft3 { namespace japi {
 
 	uint32_t kPasButton[] = {
 #include "PasButton.h"
+	};
+
+	struct rgba_t
+	{
+		uint8_t Red;
+		uint8_t Green;
+		uint8_t Blue;
+		uint8_t Alpha;
 	};
 
 	static inline unsigned char clamp_channel_bits8(int c)
@@ -34,7 +41,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		int input_width = 0;
 		int input_height = 0;
 		IMAGE::BUFFER input_pic, output_pic;
-		if (!IMAGE::BLP().Read(input, input_pic, &input_width, &input_height))
+		if (!IMAGE::BLP::Read(input, input_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -42,13 +49,13 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		output_pic.Resize(kBlpSize * kBlpSize * 4);
-		unsigned char* ptr = output_pic.GetData();
+		output_pic.resize(kBlpSize * kBlpSize * 4);
+		unsigned char* ptr = output_pic.data();
 		bool enable = false;
 		for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 		{
-			IMAGE::BLP_RGBA const& pixel_a = reinterpret_cast<IMAGE::BLP_RGBA*>(kPasButton)[i];
-			IMAGE::BLP_RGBA const& pixel_b = reinterpret_cast<IMAGE::BLP_RGBA*>(input_pic.GetData())[i];
+			rgba_t const& pixel_a = reinterpret_cast<rgba_t*>(kPasButton)[i];
+			rgba_t const& pixel_b = reinterpret_cast<rgba_t*>(input_pic.data())[i];
 			*ptr = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Red + pixel_a.Red) / (255 * 2));
 			if (*ptr++ > 63) enable = true;
 			*ptr = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Green + pixel_a.Green) / (255 * 2));
@@ -59,7 +66,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		}
 		if (!enable)
 		{
-			ptr = output_pic.GetData();
+			ptr = output_pic.data();
 			for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 			{
 				*ptr++ *= 2;
@@ -68,7 +75,7 @@ namespace base { namespace warcraft3 { namespace japi {
 				ptr++;
 			}
 		}
-		if (!IMAGE::BLP().Write(output_pic, output, kBlpSize, kBlpSize, 95))
+		if (!IMAGE::BLP::Write(output_pic, output, kBlpSize, kBlpSize, 95))
 		{
 			return false;
 		}
@@ -80,7 +87,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		int input_width = 0;
 		int input_height = 0;
 		IMAGE::BUFFER input_a_pic, input_b_pic, output_pic;
-		if (!IMAGE::BLP().Read(input_a, input_a_pic, &input_width, &input_height))
+		if (!IMAGE::BLP::Read(input_a, input_a_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -88,7 +95,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		if (!IMAGE::BLP().Read(input_b, input_b_pic, &input_width, &input_height))
+		if (!IMAGE::BLP::Read(input_b, input_b_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -96,18 +103,18 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		output_pic.Resize(kBlpSize * kBlpSize * 4);
-		unsigned char* ptr = output_pic.GetData();
+		output_pic.resize(kBlpSize * kBlpSize * 4);
+		unsigned char* ptr = output_pic.data();
 		for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 		{
-			IMAGE::BLP_RGBA const& pixel_a = reinterpret_cast<IMAGE::BLP_RGBA*>(input_a_pic.GetData())[i];
-			IMAGE::BLP_RGBA const& pixel_b = reinterpret_cast<IMAGE::BLP_RGBA*>(input_b_pic.GetData())[i];
+			rgba_t const& pixel_a = reinterpret_cast<rgba_t*>(input_a_pic.data())[i];
+			rgba_t const& pixel_b = reinterpret_cast<rgba_t*>(input_b_pic.data())[i];
 			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Red + pixel_a.Alpha * pixel_a.Red) / 255);
 			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Green + pixel_a.Alpha * pixel_a.Green) / 255);
 			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Blue + pixel_a.Alpha * pixel_a.Blue) / 255);
 			*ptr++ = clamp_channel_bits8(255 - (255 - pixel_a.Alpha) * (255 - pixel_b.Alpha) / 255);
 		}
-		if (!IMAGE::BLP().Write(output_pic, output, kBlpSize, kBlpSize, 95))
+		if (!IMAGE::BLP::Write(output_pic, output, kBlpSize, kBlpSize, 95))
 		{
 			return false;
 		}
@@ -176,7 +183,7 @@ namespace base { namespace warcraft3 { namespace japi {
 			{
 				return false;
 			}
-			blp.Assign(it->second.begin(), it->second.end());
+			blp.assign(it->second.begin(), it->second.end());
 			return true;
 		}
 
@@ -188,15 +195,15 @@ namespace base { namespace warcraft3 { namespace japi {
 				return false;
 			}
 			IMAGE::BUFFER& blp = it->second;
-			void* result = SMemAlloc(blp.GetSize() + reserve_size);
+			void* result = SMemAlloc(blp.size() + reserve_size);
 			if (!result)
 			{
 				return false;
 			}
-			memcpy(result, blp.GetData(), blp.GetSize());
+			memcpy(result, blp.data(), blp.size());
 			*buffer_ptr = result;
-			if (reserve_size) memset((unsigned char*)result + blp.GetSize(), 0, reserve_size);
-			if (size_ptr) *size_ptr = blp.GetSize();
+			if (reserve_size) memset((unsigned char*)result + blp.size(), 0, reserve_size);
+			if (size_ptr) *size_ptr = blp.size();
 			if (overlapped_ptr && overlapped_ptr->hEvent) ::SetEvent(overlapped_ptr->hEvent);
 			return true;
 		}
@@ -213,7 +220,7 @@ namespace base { namespace warcraft3 { namespace japi {
 			{
 				return false;
 			}
-			blp.Assign((const char*)buffer, (const char*)buffer + size);
+			blp.assign((const char*)buffer, (const char*)buffer + size);
 			base::std_call<bool>(real::SFileUnloadFile, buffer);
 			return true;
 		}
@@ -231,15 +238,15 @@ namespace base { namespace warcraft3 { namespace japi {
 				return false;
 			}
 
-			void* result = SMemAlloc(output.GetSize() + reserve_size);
+			void* result = SMemAlloc(output.size() + reserve_size);
 			if (!result)
 			{
 				return false;
 			}
-			memcpy(result, output.GetData(), output.GetSize());
+			memcpy(result, output.data(), output.size());
 			*buffer_ptr = result;
-			if (reserve_size) memset((unsigned char*)result + output.GetSize(), 0, reserve_size);
-			if (size_ptr) *size_ptr = output.GetSize();
+			if (reserve_size) memset((unsigned char*)result + output.size(), 0, reserve_size);
+			if (size_ptr) *size_ptr = output.size();
 			return true;
 		}
 

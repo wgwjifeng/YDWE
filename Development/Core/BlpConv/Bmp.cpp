@@ -1,34 +1,9 @@
-//+-----------------------------------------------------------------------------
-//| Included files
-//+-----------------------------------------------------------------------------
-#include "Bmp.h"
+#include "BlpConv.h"
 #include <windows.h>
 
-namespace IMAGE 
-{
+namespace IMAGE { namespace BMP {
 
-//+-----------------------------------------------------------------------------
-//| Constructor
-//+-----------------------------------------------------------------------------
-BMP::BMP()
-{
-	//Empty
-}
-
-
-//+-----------------------------------------------------------------------------
-//| Destructor
-//+-----------------------------------------------------------------------------
-BMP::~BMP()
-{
-	//Empty
-}
-
-
-//+-----------------------------------------------------------------------------
-//| Writes BMP data
-//+-----------------------------------------------------------------------------
-bool BMP::Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int Height, int /*Quality*/)
+bool Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int Height, int /*Quality*/)
 {
 	int Size = Width * Height * 4;
   
@@ -36,28 +11,25 @@ bool BMP::Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int
 	bmiHeader.biSize           = sizeof(BITMAPINFOHEADER);   
 	bmiHeader.biWidth          = Width;   
 	bmiHeader.biHeight         = Height;   
-	bmiHeader.biCompression    = BI_RGB;   
-
+	bmiHeader.biCompression    = BI_RGB;
 	bmiHeader.biClrUsed        = 0;   
 	bmiHeader.biClrImportant   = 0;   
 	bmiHeader.biPlanes         = 1;   
 	bmiHeader.biBitCount       = 32;   
 	bmiHeader.biSizeImage      = Size;   
 
-
 	BITMAPFILEHEADER bmheader = {0}; 
 	bmheader.bfType      = 'MB';   
 	bmheader.bfOffBits   = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER); 
 	bmheader.bfSize      = bmheader.bfOffBits+Size;
 
+	TargetBuffer.resize(bmheader.bfSize);
 
-	TargetBuffer.Resize(bmheader.bfSize);
+	memcpy(TargetBuffer.data(), &bmheader, sizeof(BITMAPFILEHEADER));
+	memcpy(TargetBuffer.data() + sizeof(BITMAPFILEHEADER), &(bmiHeader), sizeof(BITMAPINFOHEADER));
 
-	memcpy(TargetBuffer.GetData(), &bmheader, sizeof(BITMAPFILEHEADER));
-	memcpy(TargetBuffer.GetData(sizeof(BITMAPFILEHEADER)), &(bmiHeader), sizeof(BITMAPINFOHEADER));
-
-	const uint32_t* SourcePixel = reinterpret_cast<const uint32_t*>(SourceBuffer.GetData());
-	uint32_t* TargetPixel = reinterpret_cast<uint32_t*>(TargetBuffer.GetData(bmheader.bfOffBits));
+	const uint32_t* SourcePixel = reinterpret_cast<const uint32_t*>(SourceBuffer.data());
+	uint32_t* TargetPixel = reinterpret_cast<uint32_t*>(TargetBuffer.data() + bmheader.bfOffBits);
 	
 	for (int Y = 0; Y < Height; ++Y)
 	{
@@ -70,14 +42,10 @@ bool BMP::Write(const BUFFER& SourceBuffer, BUFFER& TargetBuffer, int Width, int
 	return true;
 }
 
-
-//+-----------------------------------------------------------------------------
-//| Reads BMP data
-//+-----------------------------------------------------------------------------
-bool BMP::Read(const BUFFER& /*SourceBuffer*/, BUFFER& /*TargetBuffer*/, int* /*Width*/, int* /*Height*/)
+bool Read(const BUFFER& /*SourceBuffer*/, BUFFER& /*TargetBuffer*/, int* /*Width*/, int* /*Height*/)
 {
 	// todo
 	return false;
 }
 
-}
+}}

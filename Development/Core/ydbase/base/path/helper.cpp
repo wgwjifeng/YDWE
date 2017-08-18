@@ -22,7 +22,7 @@ namespace base { namespace path {
 		std::wstring ret = result.wstring();
 		std::wstring tmp;
 		tmp.resize(ret.size());
-		std::transform(ret.begin(), ret.end(), tmp.begin(), tolower);
+		std::transform(ret.begin(), ret.end(), tmp.begin(), towlower);
 		return tmp;
 	}
 
