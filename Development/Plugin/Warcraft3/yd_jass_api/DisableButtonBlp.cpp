@@ -18,14 +18,6 @@ namespace base { namespace warcraft3 { namespace japi {
 #include "PasButton.h"
 	};
 
-	struct rgba_t
-	{
-		uint8_t Red;
-		uint8_t Green;
-		uint8_t Blue;
-		uint8_t Alpha;
-	};
-
 	static inline unsigned char clamp_channel_bits8(int c)
 	{
 		if (c > 255)
@@ -36,12 +28,12 @@ namespace base { namespace warcraft3 { namespace japi {
 	}
 
 	static const size_t kBlpSize = 64;
-	bool BlpDisable(const IMAGE::BUFFER& input, IMAGE::BUFFER& output)
+	bool BlpDisable(const image::buffer& input, image::buffer& output)
 	{
-		int input_width = 0;
-		int input_height = 0;
-		IMAGE::BUFFER input_pic, output_pic;
-		if (!IMAGE::BLP::Read(input, input_pic, &input_width, &input_height))
+		unsigned int input_width = 0;
+		unsigned int input_height = 0;
+		image::pixels input_pic, output_pic;
+		if (!image::blp::read(input, input_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -49,45 +41,46 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		output_pic.resize(kBlpSize * kBlpSize * 4);
-		unsigned char* ptr = output_pic.data();
+		output_pic.resize(kBlpSize * kBlpSize);
+		image::rgba* ptr = output_pic.data();
 		bool enable = false;
 		for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 		{
-			rgba_t const& pixel_a = reinterpret_cast<rgba_t*>(kPasButton)[i];
-			rgba_t const& pixel_b = reinterpret_cast<rgba_t*>(input_pic.data())[i];
-			*ptr = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Red + pixel_a.Red) / (255 * 2));
-			if (*ptr++ > 63) enable = true;
-			*ptr = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Green + pixel_a.Green) / (255 * 2));
-			if (*ptr++ > 63) enable = true;
-			*ptr = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Blue + pixel_a.Blue) / (255 * 2));
-			if (*ptr++ > 63) enable = true;
-			*ptr++ = clamp_channel_bits8(255 - (255 - pixel_a.Alpha) * (255 - pixel_b.Alpha) / 255);
+			image::rgba const& pixel_a = reinterpret_cast<image::rgba*>(kPasButton)[i];
+			image::rgba const& pixel_b = input_pic[i];
+			ptr->r = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.r + pixel_a.r) / (255 * 2));
+			if (ptr->r > 63) enable = true;
+			ptr->g = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.g + pixel_a.g) / (255 * 2));
+			if (ptr->g > 63) enable = true;
+			ptr->b = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.b + pixel_a.b) / (255 * 2));
+			if (ptr->b > 63) enable = true;
+			ptr->a = clamp_channel_bits8(255 - (255 - pixel_a.a) * (255 - pixel_b.a) / 255);
+			ptr++;
 		}
 		if (!enable)
 		{
 			ptr = output_pic.data();
 			for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 			{
-				*ptr++ *= 2;
-				*ptr++ *= 2;
-				*ptr++ *= 2;
+				ptr->r *= 2;
+				ptr->g *= 2;
+				ptr->b *= 2;
 				ptr++;
 			}
 		}
-		if (!IMAGE::BLP::Write(output_pic, output, kBlpSize, kBlpSize, 95))
+		if (!image::blp::write(output_pic, output, kBlpSize, kBlpSize, 95))
 		{
 			return false;
 		}
 		return true;
 	}
 
-	bool BlpBlend(const IMAGE::BUFFER& input_a, const IMAGE::BUFFER& input_b, IMAGE::BUFFER& output)
+	bool BlpBlend(const image::buffer& input_a, const image::buffer& input_b, image::buffer& output)
 	{
-		int input_width = 0;
-		int input_height = 0;
-		IMAGE::BUFFER input_a_pic, input_b_pic, output_pic;
-		if (!IMAGE::BLP::Read(input_a, input_a_pic, &input_width, &input_height))
+		unsigned int input_width = 0;
+		unsigned int input_height = 0;
+		image::pixels input_a_pic, input_b_pic, output_pic;
+		if (!image::blp::read(input_a, input_a_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -95,7 +88,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		if (!IMAGE::BLP::Read(input_b, input_b_pic, &input_width, &input_height))
+		if (!image::blp::read(input_b, input_b_pic, &input_width, &input_height))
 		{
 			return false;
 		}
@@ -103,18 +96,19 @@ namespace base { namespace warcraft3 { namespace japi {
 		{
 			return false;
 		}
-		output_pic.resize(kBlpSize * kBlpSize * 4);
-		unsigned char* ptr = output_pic.data();
+		output_pic.resize(kBlpSize * kBlpSize);
+		image::rgba* ptr = output_pic.data();
 		for (size_t i = 0; i < kBlpSize * kBlpSize; ++i)
 		{
-			rgba_t const& pixel_a = reinterpret_cast<rgba_t*>(input_a_pic.data())[i];
-			rgba_t const& pixel_b = reinterpret_cast<rgba_t*>(input_b_pic.data())[i];
-			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Red + pixel_a.Alpha * pixel_a.Red) / 255);
-			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Green + pixel_a.Alpha * pixel_a.Green) / 255);
-			*ptr++ = clamp_channel_bits8(((255 - pixel_a.Alpha) * pixel_b.Blue + pixel_a.Alpha * pixel_a.Blue) / 255);
-			*ptr++ = clamp_channel_bits8(255 - (255 - pixel_a.Alpha) * (255 - pixel_b.Alpha) / 255);
+			image::rgba const& pixel_a = input_a_pic[i];
+			image::rgba const& pixel_b = input_b_pic[i];
+			ptr->r = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.r + pixel_a.a * pixel_a.r) / 255);
+			ptr->g = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.g + pixel_a.a * pixel_a.g) / 255);
+			ptr->b = clamp_channel_bits8(((255 - pixel_a.a) * pixel_b.b + pixel_a.a * pixel_a.b) / 255);
+			ptr->a = clamp_channel_bits8(255 - (255 - pixel_a.a) * (255 - pixel_b.a) / 255);
+			ptr++;
 		}
-		if (!IMAGE::BLP::Write(output_pic, output, kBlpSize, kBlpSize, 95))
+		if (!image::blp::write(output_pic, output, kBlpSize, kBlpSize, 95))
 		{
 			return false;
 		}
@@ -168,7 +162,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		};
 
 		static std::map<std::string, std::string, less<std::string>> g_history;
-		static std::map<std::string, IMAGE::BUFFER, less<std::string>> g_virtualblp;
+		static std::map<std::string, image::buffer, less<std::string>> g_virtualblp;
 		static std::string g_lastfilepath;
 
 		void* SMemAlloc(size_t amount)
@@ -176,7 +170,7 @@ namespace base { namespace warcraft3 { namespace japi {
 			return base::std_call<void*>(real::SMemAlloc, amount, ".\\SFile.cpp", 4072, 0);
 		}
 
-		bool read_virtual_button_blp(const char* filepath, IMAGE::BUFFER& blp)
+		bool read_virtual_button_blp(const char* filepath, image::buffer& blp)
 		{
 			auto it = g_virtualblp.find(filepath);
 			if (it == g_virtualblp.end())
@@ -194,7 +188,7 @@ namespace base { namespace warcraft3 { namespace japi {
 			{
 				return false;
 			}
-			IMAGE::BUFFER& blp = it->second;
+			image::buffer& blp = it->second;
 			void* result = SMemAlloc(blp.size() + reserve_size);
 			if (!result)
 			{
@@ -208,7 +202,7 @@ namespace base { namespace warcraft3 { namespace japi {
 			return true;
 		}
 
-		bool read_button_blp(const char* filepath, IMAGE::BUFFER& blp)
+		bool read_button_blp(const char* filepath, image::buffer& blp)
 		{
 			if (read_virtual_button_blp(filepath, blp))
 			{
@@ -227,8 +221,8 @@ namespace base { namespace warcraft3 { namespace japi {
 
 		bool disable_button_blp(const char* filename, const void** buffer_ptr, uint32_t* size_ptr, uint32_t reserve_size)
 		{
-			IMAGE::BUFFER input;
-			IMAGE::BUFFER output;
+			image::buffer input;
+			image::buffer output;
 			if (!read_button_blp(filename, input))
 			{
 				return false;
@@ -338,7 +332,7 @@ namespace base { namespace warcraft3 { namespace japi {
 		std::string str_intput_a = jass::from_trigstring(jass::from_string(input_a));
 		std::string str_intput_b = jass::from_trigstring(jass::from_string(intput_b));
 		std::string str_output = jass::from_trigstring(jass::from_string(output));
-		IMAGE::BUFFER buf_input_a, buf_input_b, buf_output;
+		image::buffer buf_input_a, buf_input_b, buf_output;
 		if (!fake::read_button_blp(str_intput_a.c_str(), buf_input_a))
 		{
 			return false;
