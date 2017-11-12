@@ -43,18 +43,14 @@ LuaEngine::~LuaEngine()
 
 bool LuaEngine::Initialize(const fs::path& root, const std::wstring& name)
 {
-	if (!logging::initialize(root.c_str(), name))
-	{
-		printf("initialize error %d\n", GetLastError());
-		return false;
-	}
+	logging::initialize(root.c_str(), name);
 	lg = logging::get_logger("root");
 	LOGGING_INFO(lg) << "------------------------------------------------------";
 
 	try
 	{
 		base::win::version_number vn = base::win::get_version_number();
-		LOGGING_INFO(lg) << base::format("YDWE Script engine %s started.", base::win::file_version(base::path::self().c_str())[L"FileVersion"]);
+		LOGGING_INFO(lg) << base::format("LuaEngine %s started.", base::win::file_version(base::path::self().c_str())[L"FileVersion"]);
 		LOGGING_INFO(lg) << "Compiled at " __TIME__ ", " __DATE__;
 		LOGGING_INFO(lg) << base::format("Windows version: %d.%d.%d", vn.major, vn.minor, vn.build);
 
@@ -64,14 +60,14 @@ bool LuaEngine::Initialize(const fs::path& root, const std::wstring& name)
 		L = luaL_newstate();
 		if (!L)
 		{
-			LOGGING_FATAL(lg) << "Could not initialize script engine. Program may not work correctly!";
+			LOGGING_FATAL(lg) << "Could not initialize LuaEngine. Program may not work correctly!";
 			return false;
 		}
 
 		luaL_openlibs(L);
 		luaL_requiref(L, "log", luaopen_log, 1);
 		lua_pop(L, 1);
-		LOGGING_DEBUG(lg) << "Initialize script engine successfully.";
+		LOGGING_DEBUG(lg) << "Initialize LuaEngine successfully.";
 		return true;
 	}
 	catch (std::exception const& e)
@@ -94,17 +90,24 @@ bool LuaEngine::Uninitialize()
 	{
 		lua_close(L);
 		L = nullptr;
-		LOGGING_INFO(lg) << "Script engine has been shut down.";
+		LOGGING_INFO(lg) << "LuaEngine has been shut down.";
 	}
 	return true;
+}
+
+static int errorfunc(lua_State* L)
+{
+	luaL_traceback(L, L, lua_tostring(L, 1), 0);
+	return 1;
 }
 
 bool LuaEngine::Require(const char* file)
 {
 	if (!L) return false;
+	lua_pushcfunction(L, errorfunc);
 	lua_getglobal(L, "require");
 	lua_pushstring(L, file);
-	if (LUA_OK != lua_pcall(L, 1, 0, 0))
+	if (LUA_OK != lua_pcall(L, 1, 0, -3))
 	{
 		LOGGING_ERROR(lg) << "exception: " << lua_tostring(L, -1);
 		lua_pop(L, 1);
@@ -113,11 +116,11 @@ bool LuaEngine::Require(const char* file)
 	return true;
 }
 
-bool LuaEngine::SetPath(fs::path const& path)
+bool LuaEngine::SetPath(fs::path const& p1, fs::path const& p2)
 {
 	if (!L) return false;
 	lua_getglobal(L, "package");
-	lua_pushstring(L, path.string().c_str());
+	lua_pushstring(L, (p1.string() + ";" + p2.string()).c_str());
 	lua_setfield(L, -2, "path");
 	lua_pop(L, 1);
 	return true;

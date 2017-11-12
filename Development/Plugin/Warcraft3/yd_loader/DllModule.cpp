@@ -24,14 +24,10 @@ namespace WideScreen
 	void initialize();
 }
 
-uintptr_t RealLoadLibraryA  = 0;
-uintptr_t RealGameLoadLibraryA  = 0;
 uintptr_t RealCreateWindowExA = 0;
-uintptr_t RealSFileOpenArchive = (uintptr_t)::GetProcAddress(LoadLibraryW(L"Storm.dll"), (LPCSTR)266);
 
 FullWindowedMode fullWindowedMode;
 
-const char *PluginName();
 void LockingMouse();
 
 HWND WINAPI FakeCreateWindowExA(
@@ -79,80 +75,6 @@ HWND WINAPI FakeCreateWindowExA(
 	return hWnd;
 }
 
-bool EnableDirect3D9(HMODULE gamedll)
-{
-	HMODULE d3dproxy = LoadLibraryW(L"d3d8proxy.dll");
-	if (!d3dproxy)
-	{
-		return false;
-	}
-
-	uintptr_t Direct3DCreate8 = (uintptr_t)GetProcAddress(d3dproxy, "Direct3DCreate8");
-	if (!Direct3DCreate8)
-	{
-		return false;
-	}
-	return base::hook::dyn_iat(gamedll, L"d3d8.dll", "Direct3DCreate8", 0, Direct3DCreate8);
-}
-
-HMODULE __stdcall FakeGameLoadLibraryA(LPCSTR lpFilePath)
-{
-	fs::path lib((const char*)lpFilePath);
-	if (lib == "advapi32.dll")
-	{
-		return NULL;
-	}
-
-	return base::std_call<HMODULE>(RealGameLoadLibraryA, lpFilePath);
-}
-
-HMODULE __stdcall FakeLoadLibraryA(LPCSTR lpFilePath)
-{
-	fs::path lib((const char*)lpFilePath);
-	if (lib == "Game.dll")
-	{
-		if (!g_DllMod.hGameDll)
-		{
-			g_DllMod.hGameDll = ::LoadLibraryW((g_DllMod.patch_path / L"Game.dll").c_str());
-			if (!g_DllMod.hGameDll)
-			{
-				g_DllMod.hGameDll = ::LoadLibraryW(L"Game.dll");
-				if (!g_DllMod.hGameDll)
-				{
-					return g_DllMod.hGameDll;
-				}
-			}
-
-			if (g_DllMod.IsWideScreenSupport)
-			{
-				WideScreen::initialize();
-			}
-
-			RealCreateWindowExA  = base::hook::iat(L"Game.dll", "user32.dll", "CreateWindowExA", (uintptr_t)FakeCreateWindowExA);
-			if (g_DllMod.IsDisableSecurityAccess)
-			{
-				RealGameLoadLibraryA = base::hook::iat(L"Game.dll", "kernel32.dll", "LoadLibraryA", (uintptr_t)FakeGameLoadLibraryA);
-			}
-
-			HANDLE hMpq;
-			base::std_call<BOOL>(RealSFileOpenArchive, (g_DllMod.patch_path / "Patch.mpq").string().c_str(), 9, 6, &hMpq);
-
-			g_DllMod.LoadPlugins();
-			auto_enter::game_status::initialize(g_DllMod.hGameDll);
-
-			if (g_DllMod.IsEnableDirect3D9)
-			{
-				EnableDirect3D9(g_DllMod.hGameDll);
-			}
-
-			scores::rpg::hook();
-
-			return g_DllMod.hGameDll;
-		}
-	}
-
-	return base::std_call<HMODULE>(RealLoadLibraryA, lpFilePath);
-}
 
 DllModule::DllModule()
 	: hWar3Wnd(NULL)
@@ -161,7 +83,6 @@ DllModule::DllModule()
 	, IsFullWindowedMode(false)
 	, IsLockingMouse(false)
 	, IsFixedRatioWindowed(false)
-	, IsEnableDirect3D9(false)
 	, hGameDll(NULL)
 	, daemon_thread_()
 	, daemon_thread_exit_(false)
@@ -197,78 +118,6 @@ void DllModule::ThreadFunc()
 void DllModule::SetWindow(HWND hwnd)
 {
 	hWar3Wnd = hwnd;
-	for (auto it = plugin_mapping.begin(); it != plugin_mapping.end(); ++it)
-	{
-		uintptr_t func = (uintptr_t)::GetProcAddress(it->second, "SetWindow");
-		if (func)
-		{
-			base::c_call<void>(func, hwnd);
-		}
-	}
-}
-
-void DllModule::LoadPlugins()
-{
-	try {
-		fs::path plugin_path = ydwe_path / L"plugin" / L"warcraft3";
-
-		base::ini::table table;
-		try {
-			auto buf = base::file::read_stream(plugin_path / L"config.cfg").read<std::string>();
-			base::ini::read(table, buf.c_str());
-		}
-		catch(...) {
-		}
-
-		fs::directory_iterator end_itr;
-		for (fs::directory_iterator itr(plugin_path); itr != end_itr; ++itr)
-		{
-			try {
-				if (!fs::is_directory(*itr))
-				{
-					std::string utf8_name = base::w2u(itr->path().filename().wstring());
-
-					if ((! base::path::equal(itr->path().filename(), std::string(PluginName()) + ".dll"))
-						&& base::path::equal(itr->path().extension(), L".dll")
-						&& ("0" != table["Enable"][utf8_name]))
-					{
-						HMODULE module = ::LoadLibraryW(itr->path().c_str());
-						if (module)
-						{
-							plugin_mapping.insert(std::make_pair(utf8_name, module));
-						}
-					}
-				}
-			}
-			catch(...) {
-			}
-		}
-
-		for (auto it = plugin_mapping.begin(); it != plugin_mapping.end(); )
-		{
-			HMODULE            module = it->second;
-			uintptr_t fPluginName = (uintptr_t)::GetProcAddress(module, "PluginName");
-			uintptr_t fInitialize = (uintptr_t)::GetProcAddress(module, "Initialize");
-			if (fPluginName 
-				&& fInitialize
-				&& (it->first == std::string(base::c_call<const char *>(fPluginName)) + ".dll"))
-			{
-				++it;
-			}
-			else
-			{
-				::FreeLibrary(module);
-				plugin_mapping.erase(it++);
-			}
-		}
-
-		for (auto it = plugin_mapping.begin(); it != plugin_mapping.end(); ++it)
-		{
-			base::c_call<void>(::GetProcAddress(it->second, "Initialize"));
-		}
-	}
-	catch(...) {
-	}
 }
 
 void ResetConfig(base::ini::table& table)
@@ -295,36 +144,6 @@ void ResetConfig(base::ini::table& table)
 	table["FeatureToggle"]["EnableManualNewId"] = "0";
 	table["FeatureToggle"]["EnableTriggerCopyEncodingAutoConversion"] = "1";
 	table["FeatureToggle"]["EnableShowInternalAttributeId"] = "0";
-}
-
-bool DllModule::SearchPatch(fs::path& result, std::wstring const& fv_str)
-{
-	try {
-		fs::directory_iterator end_itr;
-		for (fs::directory_iterator itr(ydwe_path / L"share" / L"patch"); itr != end_itr; ++itr)
-		{
-			try {
-				if (fs::is_directory(*itr))
-				{
-					if (fs::exists(*itr / "Game.dll") && fs::exists(*itr / "Patch.mpq"))
-					{
-						base::win::file_version fv((*itr / "Game.dll").c_str());
-						if (fv_str == fv[L"FileVersion"])
-						{
-							result = *itr;
-							return true;
-						}
-					}
-				}
-			}
-			catch(...) {
-			}
-		}
-	}
-	catch(...) {
-	}
-
-	return false;
 }
 
 void DllModule::Attach()
@@ -360,33 +179,22 @@ void DllModule::Attach()
 		IsLockingMouse          = "0" != table["MapTest"]["LaunchLockingMouse"];
 		IsFixedRatioWindowed    = "0" != table["MapTest"]["LaunchFixedRatioWindowed"];
 		IsWideScreenSupport     = "0" != table["MapTest"]["LaunchWideScreenSupport"];
-		IsDisableSecurityAccess = "0" != table["MapTest"]["LaunchDisableSecurityAccess"];
-		IsEnableDirect3D9       = "Direct3D 9" == table["MapTest"]["LaunchRenderingEngine"];
-
-		try {
-			if (table["War3Patch"]["Option"] == "1")
-			{
-				if (table["MapSave"]["Option"] == "1")
-				{
-					SearchPatch(patch_path, L"1, 20, 4, 6074");
-				}
-				else if (table["MapSave"]["Option"] == "2")
-				{
-					SearchPatch(patch_path, L"1, 24, 4, 6387");
-				}
-			}
-			else if (table["War3Patch"]["Option"] == "2")
-			{
-				patch_path = ydwe_path / L"share" / L"patch"/ table["War3Patch"]["DirName"];
-			}
-		}
-		catch (...) {
-		}
 	} 
 	catch (...) {
 	}
 
-	RealLoadLibraryA  = base::hook::iat(L"War3.exe", "kernel32.dll", "LoadLibraryA", (uintptr_t)FakeLoadLibraryA);
+	g_DllMod.hGameDll = GetModuleHandleW(L"Game.dll");
+
+	if (g_DllMod.IsWideScreenSupport)
+	{
+		WideScreen::initialize();
+	}
+
+	RealCreateWindowExA = base::hook::iat(L"Game.dll", "user32.dll", "CreateWindowExA", (uintptr_t)FakeCreateWindowExA);
+
+	auto_enter::game_status::initialize(g_DllMod.hGameDll);
+
+	scores::rpg::hook();
 }
 
 void DllModule::Detach()

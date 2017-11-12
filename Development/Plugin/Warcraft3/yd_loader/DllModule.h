@@ -17,8 +17,6 @@ public:
 	void ThreadStart();
 	void ThreadStop();
 	void ThreadFunc();
-	void LoadPlugins();
-	bool SearchPatch(fs::path& result, std::wstring const& fv_str);
 	void SetWindow(HWND hwnd);
 
 	HMODULE  hGameDll;
@@ -29,9 +27,6 @@ public:
 	bool     IsLockingMouse;
 	bool     IsFixedRatioWindowed;
 	bool     IsWideScreenSupport;
-	bool     IsDisableSecurityAccess;
-	bool     IsEnableDirect3D9;
-	fs::path patch_path;
 	fs::path ydwe_path;
 
 private:
