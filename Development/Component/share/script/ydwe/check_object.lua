@@ -7,11 +7,11 @@ local w3xparser = require 'w3xparser'
 local lni       = require 'lni-c'
 
 local w2l      = root / 'plugin' / 'w3x2lni'
+local defined  = w2l / 'defined'
 local mpq      = root / 'share' / 'mpq' / 'units'
-local prebuilt = w2l / 'script' / 'prebuilt'
 
-local info       = lni(assert(io.load(w2l / 'script' / 'info.ini')), 'info')
-local typedefine = lni(assert(io.load(prebuilt / 'defined' / 'typedefine.ini')), 'defined')
+local info       = lni(assert(io.load(w2l / 'info.ini')), 'info.ini')
+local typedefine = lni(assert(io.load(defined / 'typedefine.ini')), 'typedefine.ini')
 
 local select        = select
 local tonumber      = tonumber
@@ -112,7 +112,11 @@ local function check(type, buf)
     unpack_pos = 1
     unpack_buf = buf
     has_level  = info.key.max_level[type]
-    metadata   = w3xparser.slk(io.load(mpq / info.metadata[type]))
+    if type == 'doodad' then
+        metadata   = w3xparser.slk(io.load(mpq / 'doodads' / info.metadata[type]))
+    else
+        metadata   = w3xparser.slk(io.load(mpq / 'units' / info.metadata[type]))
+    end
     check_bufs = {}
 
     unpack_head()
@@ -131,7 +135,7 @@ local function init()
     local storm = require 'ffi.storm'
     for _, type in ipairs {'ability', 'unit', 'item', 'doodad', 'destructable', 'buff', 'upgrade'} do
         local filename = info.obj[type]
-        virtual_mpq.watch(filename, function ()
+        virtual_mpq.force_watch(filename, function ()
             return check(type, storm.load_file(filename))
         end)
     end

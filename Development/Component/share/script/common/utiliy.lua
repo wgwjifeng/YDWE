@@ -1,6 +1,9 @@
 require "log"
-require "sys"
 require "filesystem"
+local process = require "process"
+
+sys = {}
+
 local uni = require 'ffi.unicode'
 
 -- 根据ydwebase.dll的路径计算
@@ -70,48 +73,8 @@ function string.trim (self)
 	return self:gsub("^%s*(.-)%s*$", "%1")
 end
 
-function sys.spawn_pipe (command_line, current_dir)		
-	local in_rd,  in_wr  = sys.open_pipe()
-	local out_rd, out_wr = sys.open_pipe()
-	local err_rd, err_wr = sys.open_pipe()
-	local p = sys.process()
-	p:hide_window()
-	p:redirect(in_rd, out_wr, err_wr)
-	if not p:create(nil, command_line, current_dir) then
-		log.error(string.format("Executed %s failed", command_line))
-		return nil
-	end	
-	in_rd:close()
-	out_wr:close()
-	err_wr:close()
-	log.trace(string.format("Executed %s.", command_line))
-	return p, out_rd, err_rd, in_wr
-end
-
-function sys.spawn_inject (application, command_line, current_dir, inject_dll)		
-	local p = sys.process()
-	
-	if inject_dll then
-		if type(inject_dll) == "string" then
-			p:inject(fs.path(inject_dll))
-		else 
-			p:inject(inject_dll)
-		end
-	end
-	
-	if not p:create(application, command_line, current_dir) then
-		log.error(string.format("Executed %s failed", command_line))
-		return false
-	end
-	
-	p:close()
-	p = nil
-	log.trace(string.format("Executed %s.", command_line))
-	return true
-end
-
-function sys.spawn (command_line, current_dir, wait)	
-	local p = sys.process()
+function sys.spawn (command_line, current_dir, wait)
+	local p = process()
 	if not p:create(nil, command_line, current_dir) then
 		log.error(string.format("Executed %s failed", command_line))
 		return false
@@ -163,4 +126,26 @@ function sys.ini_save (path, tbl)
 		end
 	end
 	f:close()
+end
+
+local ffi = require 'ffi'
+ffi.cdef[[
+    const wchar_t* __stdcall GetCommandLineW();
+    bool __stdcall TerminateProcess(int hProcess, unsigned int uExitCode);
+    int  __stdcall GetCurrentProcess();
+]]
+
+function sys.reboot(map)
+    local p = process()
+    local ydwe = fs.get(fs.DIR_EXE)
+    local cmd = '"'.. ydwe:string() .. '"'
+    if map then
+        cmd = cmd .. ' -loadfile "' .. map .. '"'
+    end
+	if not p:create(ydwe, cmd, fs.current_path()) then
+		return
+	end
+    p:close()
+    ffi.C.TerminateProcess(ffi.C.GetCurrentProcess(), 0)
+	return
 end

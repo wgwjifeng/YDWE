@@ -3,12 +3,8 @@ if not fs.exists(root) then
 	root = fs.ydwe_path()
 end
 
-local w2l = require 'w3x2lni'
-w2l:initialize(root / 'plugin' / 'w3x2lni')
-w2l.mpq = root / 'share' / 'mpq' / 'units'
-
-function message(...)
-end
+local w3x2lni = require 'w3x2lni_in_sandbox'
+local stormlib = require 'ffi.stormlib'
 
 local slk
 local obj
@@ -366,8 +362,8 @@ local function mark_obj(ttype, objs)
     end
 end
 
-local function set_config()
-    local config = w2l.config
+local function get_config()
+    local config = {}
     -- 转换后的目标格式(lni, obj, slk)
     config.target_format = 'obj'
     -- 是否分析slk文件
@@ -388,9 +384,12 @@ local function set_config()
     config.mdx_squf = false
     -- 转换为地图还是目录(mpq, dir)
     config.target_storage = 'mpq'
-
     -- 复制一份物编文件
     config.copy_obj = true
+    -- 没有嵌套目录
+    config.mpq = ''
+
+    return config
 end
 
 local function to_list(tbl)
@@ -452,6 +451,29 @@ local function create_report()
     end
 end
 
+local function get_w2l(map)
+    local w2l = w3x2lni()
+    w2l:set_config(get_config())
+    local mpq_path = root / 'share' / 'mpq' / 'units'
+    function w2l:mpq_load(filename)
+        return io.load(mpq_path / filename)
+    end
+    local prebuilt_path = root / 'share' / 'script' / 'ydwe' / 'prebuilt'
+    function w2l:prebuilt_load(filename)
+        return io.load(prebuilt_path / filename)
+    end
+    function w2l:map_load(filename)
+        return map:load_file(filename)
+    end
+    function w2l:map_save(filename, buf)
+        return map:save_file(filename, buf)
+    end
+    function w2l:map_remove(filename)
+        return map:remove_file(filename)
+    end
+    return w2l
+end
+
 local slk_proxy = {}
 
 function slk_proxy:refresh(mappath)
@@ -459,16 +481,15 @@ function slk_proxy:refresh(mappath)
         return
     end
     create_report()
-    local archive = require 'archive'
-    local ar = archive(mappath, 'w')
+    local map = stormlib.attach(mappath)
+    local w2l = get_w2l(map)
     for _, name in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'doodad', 'destructable'} do
         if used[name] then
             local buf = w2l:backend_obj(name, obj[name])
             log.debug('refresh object: ' .. w2l.info.obj[name])
-            ar:save_file(w2l.info.obj[name], buf)
+            map:save_file(w2l.info.obj[name], buf)
         end
     end
-    ar:close()
 end
 
 local function initialize(mappath)
@@ -480,19 +501,21 @@ local function initialize(mappath)
     old = {}
     new = {}
     all_chs = {}
+
+    local map = stormlib.attach(mappath)
+    if not map then
+        return
+    end
+    local w2l = get_w2l(map)
+    w2l:frontend(slk)
     default = w2l:get_default()
     metadata = w2l:metadata()
-    local archive = require 'archive'
-    local ar = archive(mappath)
-    set_config()
-    w2l:frontend(ar, slk)
     for _, name in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'doodad', 'destructable', 'misc'} do
         slk_proxy[name] = create_proxy(slk, name)
         dynamics[name] = {}
         obj[name] = slk['copyed_'..name]
         mark_obj(name, obj[name])
     end
-    ar:close()
 end
 
 initialize(__map_handle__.handle)

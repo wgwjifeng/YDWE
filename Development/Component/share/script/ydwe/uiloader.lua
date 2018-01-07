@@ -1,16 +1,22 @@
 require "registry"
+local event = require 'ev'
 local stringify_slk = require 'stringify_slk'
-local ui = require 'ui-builder.init'
 local txt = (require 'w3xparser').txt
 local ini = (require 'w3xparser').ini
 local slk = (require 'w3xparser').slk
 local lni = require 'lni-c'
-local info = lni(io.load(fs.ydwe_path() / 'plugin' / 'w3x2lni' / 'script' / 'info.ini'))
+local w3x2lni = require 'w3x2lni_in_sandbox'
+local w2l = w3x2lni()
+local ui = w2l.ui_builder
+local storm = require 'ffi.storm'
 
-local root = fs.ydwe_path():parent_path():remove_filename():remove_filename() / "Component" / "share" / "mpq"
-if not fs.exists(root) then
-	root = fs.ydwe_path() / 'share' / 'mpq'
+local ydwe = fs.ydwe_path():parent_path():remove_filename():remove_filename() / "Component"
+if not fs.exists(ydwe) then
+	ydwe = fs.ydwe_path()
 end
+
+local root = ydwe / 'share' / 'mpq'
+local info = lni(io.load(ydwe / 'plugin' / 'w3x2lni' / 'info.ini'))
 
 local loader = {}
 
@@ -21,6 +27,10 @@ local function is_enable_japi()
 	end)
 	if not ok then return true end
 	return result
+end
+
+local function is_enable_unknowui()
+	return true
 end
 
 function loader:config()
@@ -42,24 +52,31 @@ function loader:config()
 		end
 	end
 	f:close()
+	if is_enable_unknowui() then
+		table.insert(self.list, fs.ydwe_path() / 'share' / 'mpq' / 'unknowui')
+	end
 	return true
 end
 
-local data, string
+local state, data, string
 function loader:triggerdata(name, callback)
 	log.trace("virtual_mpq 'triggerdata'")
 	if #self.list == 0 then
 		return nil
 	end
-	local t = nil
+	state = nil
 	for _, path in ipairs(self.list) do
 		if fs.exists(path / 'ui') then
-			t = ui.merge(t, ui.old_reader(path / 'ui'))
+			state = ui.merge(state, ui.old_reader(function(filename)
+				return io.load(path / 'ui' / filename)
+			end))
 		else
-			t = ui.merge(t, ui.new_reader(path))
+			state = ui.merge(state, ui.new_reader(function(filename)
+				return io.load(path / filename)
+			end))
 		end
 	end
-	data, string =  ui.old_writer(t)
+	data, string =  ui.old_writer(state)
 	return data
 end
 
@@ -162,10 +179,41 @@ function loader:initialize()
 		insert('BIpd', 'item', 'other')
 		insert('Btlf', 'unit', 'other')
 		return stringify_slk(t, 'alias')
-	end)
-	virtual_mpq.event(function(_, name)
+    end)
+	event.on('virtual_mpq: open path as archive', function(name)
 		log.info('OpenPathAsArchive', name)
 	end)
+    if is_enable_unknowui() then
+        local ignore_once = nil
+        event.on('virtual_mpq: open map', function(mappath)
+            if ignore_once == mappath then
+                ignore_once = nil
+                return
+            end
+            ignore_once = mappath
+            log.info('OpenMap', mappath)
+	    	local wtg = storm.load_file('war3map.wtg')
+	    	if not wtg then
+	    		return
+	    	end
+	    	if w2l:wtg_checker(wtg, state) then
+	    		return
+	    	end
+            if not gui.yesno_message(nil, _('检测到地图使用了未知的UI，YDWE可以尝试帮你识别未知的UI，是否继续？(会重启YDWE)')) then
+                return
+            end
+	    	local _, fix = w2l:wtg_reader(wtg, state)
+            local bufs = {ui.new_writer(fix)}
+            local dir = fs.ydwe_path() / 'share' / 'mpq' / 'unknowui'
+	    	fs.create_directories(dir)
+	    	io.save(dir / 'define.txt',    bufs[1])
+	    	io.save(dir / 'event.txt',     bufs[2])
+	    	io.save(dir / 'condition.txt', bufs[3])
+	    	io.save(dir / 'action.txt',    bufs[4])
+            io.save(dir / 'call.txt',      bufs[5])
+            sys.reboot(mappath)
+        end)
+    end
 end
 
 uiloader = loader

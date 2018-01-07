@@ -1,6 +1,8 @@
 local stormlib = require 'ffi.stormlib'
-local w2l = require 'w3x2lni'
+local w3x2lni = require 'w3x2lni_in_sandbox'
+
 local mapdump = require 'mapdump'
+local process = require 'process'
 
 local mt = {}
 mt.__index = mt
@@ -11,7 +13,7 @@ function mt:process_create(command_line, current_dir)
 		self.h = nil
 	end
 
-	local p = sys.process()
+	local p = process()
 	p:hide_window()
 	if not p:create(nil, command_line, current_dir) then
 		log.error('Executed failed: ', command_line)
@@ -37,6 +39,7 @@ local function getplayernum(mappath)
     		return 0
 		end
 		local w3i = map:load_file('war3map.w3i')
+		local w2l = w3x2lni()
 		local tbl = w2l:read_w3i(w3i)
 		local n = 0
 		if tbl['选项']['自定义玩家分组'] == 0 then
@@ -57,7 +60,7 @@ end
 
 
 local function single_test(commandline, mappath)
-	return '"' .. (fs.war3_path() / 'war3.exe'):string() .. '" -loadfile "' .. mappath:string() .. '"' .. commandline
+	return '"' .. (fs.ydwe_path() / 'ydwe.exe'):string() .. '" -war3 -loadfile "' .. mappath:string() .. '"' .. commandline
 end
 
 local function path_sub(a, b)
@@ -113,11 +116,23 @@ local function host_test(commandline, mappath)
 	host_copy_dll(curdir)
 	host_save_config(curdir, mappath, host_test + 1)
 	ydhost:process_create(curdir / 'ydhost.exe', curdir)
-	local cmd = '"' .. (fs.war3_path() / 'war3.exe'):string() .. '"' .. commandline .. ' -auto'
+	local cmd = '"' .. (fs.ydwe_path() / 'ydwe.exe'):string() .. '" -war3 ' .. commandline .. ' -auto'
 	if host_test == 0 then
 		return cmd, 1
 	end
 	return cmd, getplayernum(mappath)
+end
+
+local function process_create(application, command_line)
+	local p = process()
+	if not p:create(application, command_line, nil) then
+		log.error(string.format("Executed %s failed", command_line))
+		return false
+	end
+	p:close()
+	p = nil
+	log.trace(string.format("Executed %s.", command_line))
+	return true
 end
 
 -- 本函数在测试地图时使用
@@ -141,18 +156,6 @@ function event.EVENT_TEST_MAP(event_data)
 	local commandline = ""
 	local n = 0
 
-	-- 是否OpenGL方式？
-	if global_config["MapTest"]["LaunchRenderingEngine"] == "OpenGL" then
-		commandline = commandline .. " -opengl"
-	end
-
-	-- 是否窗口方式？
-	if global_config["MapTest"]["LaunchWindowed"] ~= "0" then
-		commandline = commandline .. " -window"
-	end
-
-	commandline = commandline .. ' -ydwe "' .. fs.ydwe_path():string() .. '"'
-
 	log.debug("Testing " .. tostring(global_config["MapTest"]["EnableHost"]))
 	if global_config["MapTest"]["EnableHost"] == "1" then
 		commandline, n = host_test(commandline, mappath)
@@ -163,8 +166,7 @@ function event.EVENT_TEST_MAP(event_data)
 	local result = false
 	-- 启动魔兽开始测试...
 	for i = 1, n do
-		local war3_helper_dll = fs.ydwe_path() / "plugin" / "warcraft3" / "yd_loader.dll"
-		result = sys.spawn_inject(event_data.application_name, commandline, nil, war3_helper_dll)
+		result = process_create(fs.ydwe_path() / 'ydwe.exe', commandline)
 	end
 
 	log.debug("********************* on test end *********************")
