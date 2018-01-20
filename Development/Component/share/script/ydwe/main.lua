@@ -22,11 +22,8 @@ require "filesystem"
 require "gui"
 
 local uni = require "ffi.unicode"
-local root = fs.ydwe_path():parent_path():remove_filename():remove_filename() / "Component" 
-if not fs.exists(root) then
-	root = fs.ydwe_path()
-end
-package.path = package.path .. ';' .. uni.u2a((root / 'plugin' / '?' / 'init.lua'):string())
+local root = fs.ydwe_devpath()
+package.path = package.path.. ';' .. uni.u2a((root / 'plugin' / '?.lua'):string()) .. ';' .. uni.u2a((root / 'plugin' / '?' / 'init.lua'):string()) 
 
 require "event"
 require "virtual_mpq"
@@ -35,7 +32,6 @@ require "version"
 require "localization"
 require "config"
 require "plugin"
-require "uiloader"
 require "check_object"
 require "ffi.loadlibrary"
 require "ffi.gui"

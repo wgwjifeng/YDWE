@@ -1,14 +1,14 @@
-require "i18n"
-require "filesystem"
-local uni = require 'ffi.unicode'
+local i18n = require "i18n"
 
-function _(str)
-	return i18n.gettext(str)
-end
+i18n.initialize(fs.ydwe_devpath() / "share" / "locale")
+i18n.set_domain("script")
 
-function __(str)
-	return uni.u2a(str)
-end
+log.error('[i18n]current language', i18n.get_language())
 
-i18n.textdomain("MainScript");
-i18n.bindtextdomain("MainScript", fs.ydwe_path() / "share" / "locale")
+LNG = setmetatable({}, { __index = function (_, str)
+    local res = i18n.get_text(str)
+    if res == str then
+        log.error('[i18n]unknown text:', str)
+    end
+    return res
+end})

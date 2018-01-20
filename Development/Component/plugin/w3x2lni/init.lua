@@ -1,4 +1,5 @@
 local w3xparser = require 'w3xparser'
+local mpq_path = require 'mpq_path'
 local lni = require 'lni-c'
 local progress = require 'progress'
 local slk = w3xparser.slk
@@ -67,7 +68,7 @@ end
 function mt:get_editstring(str)
     -- TODO: WESTRING不区分大小写，不过我们把WorldEditStrings.txt改了，暂时不会出现问题
     if not self.editstring then
-        self.editstring = ini(self:mpq_load(self.mpq .. '\\UI\\WorldEditStrings.txt'))['WorldEditStrings']
+        self.editstring = ini(self:mpq_load('UI\\WorldEditStrings.txt'))['WorldEditStrings']
     end
     if not self.editstring[str] then
         return str
@@ -82,7 +83,7 @@ local function create_default(w2l)
     local default = {}
     local need_build = false
     for _, name in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'doodad', 'destructable', 'txt', 'misc'} do
-        local str = w2l:prebuilt_load(w2l.default .. '\\' .. name .. '.ini')
+        local str = w2l:prebuilt_load(name .. '.ini')
         if str then
             default[name] = lni(str)
         else
@@ -178,15 +179,73 @@ function mt:__index(name)
     return nil
 end
 
+local function new_path()
+    local mt = {}
+    local paths = {'\\'}
+    local mpqs = {}
+    local function update()
+        paths = {'\\'}
+        for i = #mpqs, 1, -1 do
+            local path = mpqs[i]
+            local max = #paths
+            table.insert(paths, '\\' .. path .. '\\')
+            for i = 2, max do
+                table.insert(paths, '\\' .. path .. paths[i])
+            end
+        end
+    end
+    function mt:open(path)
+        table.insert(mpqs, path)
+        update()
+    end
+    function mt:close(path)
+        for i, mpq in ipairs(mpqs) do
+            if mpq == path then
+                table.remove(mpqs, i)
+                update()
+                return
+            end
+        end
+    end
+    function mt:each_path(callback)
+        for i = #paths, 1, -1 do
+            local res = callback(paths[i])
+            if res then
+                return res
+            end
+        end
+    end
+    return mt
+end
+
+function mt:map_load(filename)
+    return nil
+end
+
+function mt:map_save(filename, buf)
+end
+
+function mt:map_remove(filename)
+end
+
+function mt:mpq_load(filename)
+    return nil
+end
+
+function mt:prebuilt_load(filename)
+    return nil
+end
+
+mt.config = {}
 function mt:set_config(config)
     self.config = config
-    self.mpq = self.config.mpq
+    self.mpq_path = mpq_path()
+    self.mpq_path:open(config.mpq)
+    self.mpq_path:open(config.lang)
     if self.config.version == 'Melee' then
-        self.agent = self.mpq
-        self.default = self.mpq .. '\\Melee'
+        self.mpq_path:open 'Melee_V1'
     else
-        self.agent = self.mpq .. '\\Custom_V1'
-        self.default = self.mpq .. '\\Custom'
+        self.mpq_path:open 'Custom_V1'
     end
 end
 
@@ -199,5 +258,6 @@ return function ()
     local self = setmetatable({}, mt)
     self.progress = progress()
     self.loaded = {}
+    self:set_messager(function () end)
     return self
 end

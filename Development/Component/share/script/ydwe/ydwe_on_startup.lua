@@ -1,6 +1,8 @@
 require "compile.inject_code"
 require "compile.native"
-local stormlib = require 'ffi.stormlib'
+local uiloader  = require "uiloader"
+local mpqloader = require 'mpqloader'
+local stormlib  = require 'ffi.stormlib'
 
 -- 版本信息
 ydwe_version = sys.version {}
@@ -39,7 +41,7 @@ local function check_conflicting_ui()
 	end
 	
 	if found then
-		if gui.yesno_message(nil, string.format(_("YDWE has detected that there is a directory named \"%s\" located in Warcraft 3 installation directory. It may prevent YDWE from working. Do you want to delete it?"), 'UI'), _("YDWE")) then
+		if gui.yesno_message(nil, string.format(LNG.DELETE_DANGER_DIR, 'UI'), LNG.YDWE) then
 			for index, file in ipairs(file_list) do			
 				log.debug("remove file " .. (fs.war3_path() / file):string())
 				pcall(fs.remove_all, fs.war3_path() / file)
@@ -61,7 +63,7 @@ local function check_conflicting_units()
 	end
 	
 	if found then
-		if gui.yesno_message(nil, _("YDWE has detected that there is a directory named \"%s\" located in Warcraft 3 installation directory. It may prevent YDWE from working. Do you want to delete it?"), 'Units') then		
+		if gui.yesno_message(nil, LNG.DELETE_DANGER_DIR, 'Units') then		
 			for file in units_dir:list_directory() do	
 				if not fs.is_directory(file) then
 					log.debug("remove file " .. file:string())
@@ -131,7 +133,7 @@ local function check_war3_version()
 		else
 			-- 二者如果不一致，则提示
 			if war3_version:is_new() ~= script_war3_version:is_new() then
-				gui.error_message(nil, _("YDWE has detected that your game.dll and war3patch.mpq mismatch. It may be caused by the so called \"Warcraft Version Converter\". This situation will cause a failure on saving and testing maps. It is strongly recommended to use the offical patched provided by Blizzard."))
+				gui.error_message(nil, LNG.ERROR_WAR3_VERSION)
 			end
 		end
 	end
@@ -185,14 +187,15 @@ function event.EVENT_WE_START(event_data)
 	check_war3_version()	
 
 	-- 载入Patch MPQ
-	mpq_util:load_mpq("units", 14)
-	mpq_util:load_mpq("war3", 14)
+	mpq_util:load_mpq("mpq", 14)
+    mpq_util:load_mpq("mpq/war3", 14)
+    mpq_util:load_mpq("mpq/" .. (require "i18n").get_language(), 14)
 
 	-- 加载插件
 	plugin:load_all()
 
 	-- 初始化UI加载器
-	uiloader:initialize()
+	uiloader()
 	
 	-- 载入注入代码配置
 	inject_code:initialize()

@@ -4,6 +4,7 @@ local load=load
 local string=string
 local table=table
 local storm = require 'ffi.storm'
+local uni = require 'ffi.unicode'
 
 local function result(...)
 	return select("#",...), select(1,...)
@@ -104,7 +105,12 @@ function template:do_compile(op)
     	return false, content
     end
     if package.loaded['slk'] then
-        package.loaded['slk']:refresh(__map_handle__.handle)
+		package.loaded['slk']:refresh(function(msg)
+			if #msg == 0 then
+				return
+			end
+			gui.message(nil, ('%s\n\n%s'):format('编辑器刚刚帮你修改了物编数据,建议重新打开地图,以便查看变化', msg))
+		end)
     end
     return true, content
 end
@@ -120,9 +126,9 @@ function template:compile(op)
 			if pos then
 				msg = msg:sub(1, pos-1)
 			end
-			gui.error_message(nil, __(msg))
+			gui.error_message(nil, uni.a2u(msg))
 		else
-			gui.error_message(nil, _("Unknown"))
+			gui.error_message(nil, LNG.UNKNOWN)
 		end			
 		log.error("Template error processing: " .. tostring(content))
 		return false

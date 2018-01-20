@@ -1,10 +1,7 @@
 require "filesystem"
 local process = require "process"
 
-local root = fs.ydwe_path():parent_path():remove_filename():remove_filename() / "Component"
-if not fs.exists(root) then
-	root = fs.ydwe_path()
-end
+local root = fs.ydwe_devpath()
 
 wave = {}
 wave.path                = fs.ydwe_path() / "plugin" / "wave"
@@ -88,9 +85,9 @@ function wave:compile(op)
 	-- 退出码0代表成功
 	if exit_code ~= 0 then
 		if out and err then
-			gui.error_message(nil, _("Preprocessor failed with message:\nstdout:%s\nstderr: %s"), out, err)
+			gui.error_message(nil, LNG.PREPEOCESSOR_FAILED, out, err)
 		else
-			gui.error_message(nil, _("Cannot start preprocessor process."))
+			gui.error_message(nil, LNG.PREPEOCESSOR_LAUNCH_FAILED)
 		end
 		return false
 	end
