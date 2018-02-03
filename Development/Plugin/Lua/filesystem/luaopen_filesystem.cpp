@@ -279,7 +279,13 @@ namespace luafs {
 			FS_TRY;
 			const fs::path& self = path::to(L, 1);
 			const fs::path& rht = path::to(L, 2);
-			lua_pushboolean(L, fs::equivalent(self, rht));
+			std::error_code ec;
+			bool r = fs::equivalent(self, rht, ec);
+			if (ec) {
+				lua_pushboolean(L, r);
+				return 1;
+			}
+			lua_pushboolean(L, base::path::equal(self, rht));
 			return 1;
 			FS_TRY_END;
 		}
@@ -409,12 +415,26 @@ namespace luafs {
 	static int canonical(lua_State* L)
 	{
 		FS_TRY;
-		const fs::path& p = path::to(L, 1);;
+		const fs::path& p = path::to(L, 1);
 		if (lua_gettop(L) == 1) {
 			return path::constructor_(L, std::move(fs::canonical(p)));
 		}
 		const fs::path& base = path::to(L, 2);
 		return path::constructor_(L, std::move(fs::canonical(p, base)));
+		FS_TRY_END;
+	}
+
+	static int uncomplete(lua_State* L)
+	{
+		FS_TRY;
+		const fs::path& p = path::to(L, 1);
+		const fs::path& base = path::to(L, 2);
+		std::error_code ec;
+		fs::path result  = base::path::uncomplete(p, base, ec);
+		if (ec) {
+			throw fs::filesystem_error("uncomplete(p1, p2): invalid arguments");
+		}
+		return path::constructor_(L, std::move(result));
 		FS_TRY_END;
 	}
 
@@ -494,6 +514,7 @@ int luaopen_filesystem(lua_State* L)
 		{ "copy_file", luafs::copy_file },
 		{ "absolute", luafs::absolute },
 		{ "canonical", luafs::canonical },
+		{ "uncomplete", luafs::uncomplete },
 		{ "last_write_time", luafs::last_write_time },
 		{ "get", luafs::get },
 		{ "ydwe", luafs::ydwe },
