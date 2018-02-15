@@ -15,12 +15,10 @@ local function get_lang_ui(loader, type, lang)
     if not lang then
         return
     end
-    local res = {}
     local filename = lang .. '/' .. type .. '.txt'
     local buf = loader(filename)
     if buf then
-        lni(buf, filename, res)
-        return res
+        return lni(buf, filename)
     end
 end
 
@@ -70,7 +68,7 @@ function mt:read_ui(loader, lang, type)
             last = value
         end,
     })
-    lni(buf, type .. '.txt', t)
+    lni(buf, type .. '.txt', {t})
     savelast()
 end
 
