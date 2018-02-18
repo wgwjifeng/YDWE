@@ -5,6 +5,7 @@ require "compile.cjass"
 require "compile.jasshelper"
 require "compile.native"
 require "mpq_util"
+local ev = require 'ev'
 
 -- 给路径末尾，扩展名前添加内容
 -- 效果：("abc.w3x", "def") -> "abcdef.w3x"
@@ -94,6 +95,8 @@ local function compile_map(map_path, option)
 				return compile_t.output
 			end
 		)
+		
+		ev.emit('编译地图')
 		
 		-- 开始调用编译工具编译
 		if result then
@@ -208,7 +211,7 @@ function event.EVENT_PRE_SAVE_MAP(event_data)
 			log.trace("Remove the read-only attribute.")
 			map_path:add_permissions(128)
 		else
-			log.trace("Don't the remove read-only attribute.")
+			log.trace("Don't remove the read-only attribute.")
 		end
 	end
 		
