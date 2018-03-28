@@ -4,7 +4,8 @@
 #include <base/warcraft3/directory.h>
 #include <base/file/stream.h>
 #include <base/path/self.h>
-#include <base/path/service.h>
+#include <base/path/get_path.h>
+#include <base/path/ydwe.h>
 #include <base/path/helper.h>
 #include <base/util/unicode.h>
 #include <base/win/version.h>
@@ -87,6 +88,7 @@ namespace
 		("LaunchWideScreenSupport",                 Attribute("MapTest"))
 		("LaunchDisableSecurityAccess",             Attribute("MapTest"))
 		("EnableHost",                              Attribute("MapTest"))
+		("EnableMapSlk",                            Attribute("MapTest"))
 		("EnableDotNetSupport",                     Attribute("ThirdPartyPlugin"))
 		("EnableTesh",                              Attribute("ThirdPartyPlugin"))
 		("EnableYDTrigger",                         Attribute("ThirdPartyPlugin"))
@@ -194,6 +196,7 @@ void CMainWindow::ResetConfig(base::ini::table& table)
 	table["MapTest"]["LaunchFixedRatioWindowed"] = "0";
 	table["MapTest"]["LaunchDisableSecurityAccess"] = "0";
 	table["MapTest"]["EnableHost"] = "0";
+	table["MapTest"]["EnableMapSlk"] = "0";
 	table["ScriptCompiler"]["EnableJassHelper"] = "1";
 	table["ScriptCompiler"]["EnableJassHelperDebug"] = "0";
 	table["ScriptCompiler"]["EnableJassHelperScriptOnly"] = "0";

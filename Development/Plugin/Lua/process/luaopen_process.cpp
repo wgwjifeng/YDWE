@@ -42,15 +42,13 @@ namespace process {
 		{
 			SECURITY_ATTRIBUTES sa;
 			sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-			sa.bInheritHandle = TRUE;
+			sa.bInheritHandle = FALSE;
 			sa.lpSecurityDescriptor = NULL;
-			HANDLE read_pipe, write_pipe;
+			HANDLE read_pipe = NULL, write_pipe = NULL;
 			if (!::CreatePipe(&read_pipe, &write_pipe, &sa, 0))
 			{
-				return std::make_pair(read_pipe, write_pipe);
+				return std::make_pair((HANDLE)NULL, (HANDLE)NULL);
 			}
-			::SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
-			::SetHandleInformation(write_pipe, HANDLE_FLAG_INHERIT, 0);
 			return std::make_pair(read_pipe, write_pipe);
 		}
 
@@ -70,14 +68,14 @@ namespace process {
 				return 0;
 			}
 			if (type == 'r') {
-				return push(L, h, _O_RDONLY | _O_TEXT, "rt");
+				return push(L, h, _O_RDONLY |_O_TEXT, "rt");
 			}
 			return push(L, h, _O_WRONLY | _O_TEXT, "wt");
 		}
 
 		static int peek(lua_State* L, int idx)
 		{
-			luaL_Stream* p = to(L, 1);
+			luaL_Stream* p = to(L, idx);
 			if (p) {
 				DWORD rlen = 0;
 				if (PeekNamedPipe((HANDLE)_get_osfhandle(_fileno(p->f)), 0, 0, 0, &rlen, 0)) {
@@ -164,8 +162,43 @@ namespace process {
 	int inject(lua_State* L)
 	{
 		base::win::process& self = to(L, 1);
-		bool ok = self.inject(*(fs::path*)luaL_checkudata(L, 2, "filesystem"));
+		bool ok = self.inject_x86(*(fs::path*)luaL_checkudata(L, 2, "filesystem"));
 		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	int inject_x86(lua_State* L)
+	{
+		base::win::process& self = to(L, 1);
+		bool ok = self.inject_x86(*(fs::path*)luaL_checkudata(L, 2, "filesystem"));
+		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	int inject_x64(lua_State* L)
+	{
+		base::win::process& self = to(L, 1);
+		bool ok = self.inject_x64(*(fs::path*)luaL_checkudata(L, 2, "filesystem"));
+		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	int set_console(lua_State* L)
+	{
+		base::win::process& self = to(L, 1);
+		const char* console = luaL_checkstring(L, 2);
+		if (strcmp(console, "new") == 0) {
+			lua_pushboolean(L, self.set_console(base::win::process::CONSOLE_NEW));
+		}
+		else if(strcmp(console, "disable") == 0) {
+			lua_pushboolean(L, self.set_console(base::win::process::CONSOLE_DISABLE));
+		}
+		else if (strcmp(console, "inherit") == 0) {
+			lua_pushboolean(L, self.set_console(base::win::process::CONSOLE_INHERIT));
+		}
+		else {
+			lua_pushboolean(L, 0);
+		}
 		return 1;
 	}
 
@@ -234,7 +267,6 @@ namespace process {
 			::CloseHandle(wr);
 			return 0;
 		}
-		::CloseHandle(rd);
 		return pipe::push(L, wr, 'w');
 	}
 
@@ -250,7 +282,6 @@ namespace process {
 			::CloseHandle(wr);
 			return 0;
 		}
-		::CloseHandle(wr);
 		return pipe::push(L, rd, 'r');
 	}
 
@@ -266,13 +297,24 @@ namespace process {
 			::CloseHandle(wr);
 			return 0;
 		}
-		::CloseHandle(wr);
 		return pipe::push(L, rd, 'r');
 	}
 
 	int peek(lua_State* L)
 	{
 		return pipe::peek(L, 2);
+	}
+
+	int set_env(lua_State* L)
+	{
+		base::win::process& self = to(L, 1);
+		if (lua_type(L, 3) == LUA_TNIL) {
+			self.del_env(luaL_checkwstring(L, 2));
+		}
+		else {
+			self.set_env(luaL_checkwstring(L, 2), luaL_checkwstring(L, 3));
+		}
+		return 0;
 	}
 }
 
@@ -281,7 +323,10 @@ int luaopen_process(lua_State* L)
 {
 	static luaL_Reg mt[] = {
 		{ "inject", process::inject },
+		{ "inject_x86", process::inject_x86 },
+		{ "inject_x64", process::inject_x64 },
 		{ "hide_window", process::hide_window },
+		{ "set_console", process::set_console },
 		{ "std_input", process::std_input },
 		{ "std_output", process::std_output },
 		{ "std_error", process::std_error },
@@ -292,6 +337,7 @@ int luaopen_process(lua_State* L)
 		{ "kill", process::kill },
 		{ "id", process::id },
 		{ "is_running", process::is_running },
+		{ "set_env", process::set_env },
 		{ "__gc", process::destructor },
 		{ NULL, NULL }
 	};

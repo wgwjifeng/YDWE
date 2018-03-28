@@ -1,5 +1,5 @@
 local stormlib = require 'ffi.stormlib'
-local w3x2lni = require 'w3x2lni_in_sandbox'
+local w3x2lni = require 'w3x2lni'
 
 local mapdump = require 'mapdump'
 local process = require 'process'
@@ -40,7 +40,7 @@ local function getplayernum(mappath)
 		end
 		local w3i = map:load_file('war3map.w3i')
 		local w2l = w3x2lni()
-		local tbl = w2l:read_w3i(w3i)
+		local tbl = w2l:frontend_w3i(w3i)
 		local n = 0
 		if tbl['选项']['自定义玩家分组'] == 0 then
 			n = tbl['玩家']['玩家数量']
@@ -82,9 +82,9 @@ local function host_save_config(curdir, mappath, autostart)
 	local ver = global_config_war3_version()
 	local jasspath
 	if ver:is_new() then
-		jasspath = fs.ydwe_path() / "jass" / "system" / "ht"
+		jasspath = fs.ydwe_path() / "share" / "jass" / "ht"
 	else
-		jasspath = fs.ydwe_path() / "jass" / "system" / "rb"
+		jasspath = fs.ydwe_path() / "share" / "jass" / "rb"
 	end
 	local of = io.open(curdir / 'map.cfg', 'wb')
 	local ok, e = pcall(mapdump, mappath, jasspath,

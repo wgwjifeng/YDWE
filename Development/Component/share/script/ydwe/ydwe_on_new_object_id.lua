@@ -2,7 +2,8 @@ require "filesystem"
 require "localization"
 local ffi = require "ffi"
 local root = fs.ydwe_devpath()
-local w3x2lni = require 'w3x2lni_in_sandbox'
+local ydpath = fs.ydwe_path()
+local w3x2lni = require 'w3x2lni'
 local mpqloader = require 'mpqloader'
 
 local function get_default(type)
@@ -13,7 +14,7 @@ local function get_default(type)
         return mpqloader:load(mpq_path, filename)
     end
 
-    local prebuilt_path = root / 'share' / 'script' / 'ydwe' / 'prebuilt'
+    local prebuilt_path = ydpath / 'share' / 'script' / 'ydwe' / 'prebuilt'
     function w2l:prebuilt_load(filename)
         return mpqloader:load(prebuilt_path, filename)
     end
@@ -88,43 +89,14 @@ function event.EVENT_NEW_OBJECT_ID(event_data)
 		log.trace("Disable.")
 		return default_id
 	end
-	
-	-- 获取当前窗口
-	local foregroundWindow = gui.get_foreground_window()
-
-	-- 循环直到输入合法或者放弃
-	while true do
-		-- 打开对话框让用户输入
-		local ok, id_string = gui.prompt_for_input(
-			foregroundWindow, 														-- 父窗口句柄
-			LNG.NEW_OBJECT_ID,														-- 标题栏
-			LNG.INPUT_OBJECT_ID,		-- 提示语句
-			from_objectid(default_id),							                	-- 文本编辑区初始文字
-			LNG.OK,																-- “确定”按钮文本
-			LNG.CANCEL																-- “取消"按钮文本
-		)
-		
-		-- 用户点了确定，验证输入是否合法。如果点了取消，使用系统默认
-		if not ok then
-			log.trace("User cancel.")
-			return default_id
-		end
-		
-		-- 检查输入是否合法（字符串长度是否为4）
-		if #id_string ~= 4 then
-			log.trace("User input error(" .. tostring(id_string) .. ").")	
-			-- 提示错误
-			gui.error_message(foregroundWindow, LNG.ERROR_OBJECT_ID)
-		elseif object:custom_has(object_type, id_string) or object:original_has(event_data.class, id_string) then
-			log.trace("User input error(" .. tostring(id_string) .. ").")	
-			-- 提示错误
-			gui.error_message(foregroundWindow, LNG.EXISTS_OBJECT_ID)
-		else
-			-- 合法，转换为整数返回	
-			log.trace("Result " .. tostring(id_string))	
-			return to_objectid(id_string)
-		end
-				
-	end
-	return 0
+	local dialog = require 'gui_newobjectid'
+    local res = dialog(from_objectid(default_id), function(r)
+        if #r ~= 4 then
+            return LNG.ERROR_OBJECT_ID
+        end
+        if object:custom_has(object_type, r) or object:original_has(event_data.class, r) then
+            return LNG.EXISTS_OBJECT_ID
+        end
+    end)
+    return to_objectid(res)
 end
