@@ -62,31 +62,35 @@ return function (w2l, output_ar, w3i, input_ar)
     for _, name in pairs(w2l.info.pack.packignore) do
         w2l:file_remove('map', name)
     end
-    w2l:map_remove('builder.w3x')
-    if w2l.config.mode == 'lni' then
-        if w2l:file_load('map', 'war3map.imp') then
-            w2l:file_save('lni', 'imp', w2l:backend_imp(w2l:file_load('map', 'war3map.imp')))
-            w2l:file_remove('map', 'war3map.imp')
-        else
-            w2l:file_save('lni', 'imp', w2l:file_load('lni', 'imp'))
-        end
-    else
-        if w2l.config.remove_we_only then
-            w2l:file_remove('map', 'war3map.imp')
-        elseif w2l:file_load('lni', 'imp') then
-            w2l:file_save('map', 'war3map.imp', build_imp(w2l, output_ar, w2l:file_load('lni', 'imp')))
-        end
-    end
+    w2l:map_remove('.w3x')
+    local imp = w2l:file_load('table', 'imp')
+    w2l:file_remove('table', 'imp')
 
     for type, name, buf in w2l:file_pairs() do
         if type == 'resource' and w2l.config.mdx_squf and name:sub(-4) == '.mdx' then
             buf = w3xparser.mdxopt(buf)
         end
-        w2l:file_save(type, name, buf)
+        if type == 'plugin' and w2l.config.remove_we_only then
+        else
+            w2l:file_save(type, name, buf)
+        end
+    end
+    
+    if w2l.config.mode == 'lni' then
+        if w2l:file_load('map', 'war3map.imp') then
+            w2l:file_save('table', 'imp', w2l:backend_imp(w2l:file_load('map', 'war3map.imp')))
+            w2l:file_remove('map', 'war3map.imp')
+        else
+            w2l:file_save('table', 'imp', imp)
+        end
+    else
+        if not w2l.config.remove_we_only and imp then
+            w2l:file_save('map', 'war3map.imp', build_imp(w2l, output_ar, imp))
+        end
     end
 
     input_ar:close()
-    if not output_ar:save(w3i, w2l.progress, w2l.config.remove_we_only) then
+    if not output_ar:save(w3i, w2l) then
         print('创建新地图失败,可能文件被占用了')
     end
     output_ar:close()

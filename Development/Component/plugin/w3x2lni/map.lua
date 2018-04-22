@@ -7,6 +7,7 @@ local builder = require 'map-builder'
 local triggerdata = require 'tool.triggerdata'
 local plugin = require 'tool.plugin'
 local w2l = core()
+local root = fs.current_path()
 
 local std_print = print
 function print(...)
@@ -40,8 +41,11 @@ local function unpack_config()
             end
         end
     end
-    if not config.config_path or not config.mode then
+    if not config.mode then
         return config
+    end
+    if not config.config_path then
+        config.config_path = '..\\config.ini'
     end
     local tbl = lni(io.load(fs.path(config.config_path)))
     for k, v in pairs(tbl) do
@@ -71,42 +75,66 @@ end
 
 local config = unpack_config()
 w2l:set_config(config)
-
-local input = config.input
-print('正在打开地图...')
-local slk = {}
-local input_ar = builder.load(input)
-if not input_ar then
-    return
+if config.mode == 'slk' then
+    print('-title Slk优化')
+elseif config.mode == 'obj' then
+    print('-title 转为Obj')
+elseif config.mode == 'lni' then
+    print('-title 转为Lni')
 end
 
-local output = config.output or default_output(config.input)
-if w2l.config.target_storage == 'dir' then
-    fs.create_directories(output)
+input = config.input
+local function check_lni_mark(path)
+    local map = io.open(path:string(), 'rb')
+    if map then
+        map:seek('set', 8)
+        local mark = map:read(4)
+        map:close()
+        if mark == 'W2L\x01' then
+            return true
+        end
+    end
 end
-local output_ar = builder.load(output, 'w')
-if not output_ar then
-    return
-end
-output_ar:flush()
 
-local function is_input_lni()
+local function check_input_lni()
     if fs.is_directory(input) then
-        local map = io.open((input / 'builder.w3x'):string(), 'rb')
-        if map then
-            map:seek('set', 8)
-            local mark = map:read(4)
-            if mark == 'W2L\x01' then
-                return true
-            end
+        if check_lni_mark(input / '.w3x') then
+            return true
+        end
+    else
+        if check_lni_mark(input) then
+            input = input:parent_path()
+            config.input = input
+            return true
         end
     end
     return false
 end
 
-if is_input_lni() then
+if check_input_lni() then
     w2l.input_mode = 'lni'
 end
+
+print('正在打开地图...')
+local slk = {}
+local input_ar = builder.load(input)
+if not input_ar then
+    os.exit(1, true)
+    return
+end
+
+output = config.output or default_output(config.input)
+if w2l.config.target_storage == 'dir' then
+    if not fs.exists(output) then
+        fs.create_directories(output)
+    end
+end
+local output_ar = builder.load(output, 'w')
+if not output_ar then
+    os.exit(1, true)
+    return
+end
+output_ar:flush()
 
 function w2l:map_load(filename)
     return input_ar:get(filename)
@@ -121,12 +149,21 @@ function w2l:map_remove(filename)
 end
 
 function w2l:file_save(type, name, buf)
-    if type == 'lni' then
-        input_ar:set(self.info.dir[name][1], buf)
-        output_ar:set(self.info.dir[name][1], buf)
+    if type == 'table' then
+        input_ar:set(self.info.lni_dir[name][1], buf)
+        output_ar:set(self.info.lni_dir[name][1], buf)
     elseif type == 'trigger' then
         input_ar:set('trigger/' .. name, buf)
         output_ar:set('trigger/' .. name, buf)
+    elseif type == 'scripts' then
+        if not self.config.export_lua then
+            return
+        end
+        input_ar:set('scripts/' .. name, buf)
+        output_ar:set('scripts/' .. name, buf)
+    elseif type == 'plugin' then
+        input_ar:set('plugin/' .. name, buf)
+        output_ar:set('plugin/' .. name, buf)
     else
         if self.input_mode == 'lni' then
             input_ar:set(type .. '/' .. name, buf)
@@ -142,8 +179,8 @@ function w2l:file_save(type, name, buf)
 end
 
 function w2l:file_load(type, name)
-    if type == 'lni' then
-        for _, filename in ipairs(self.info.dir[name]) do
+    if type == 'table' then
+        for _, filename in ipairs(self.info.lni_dir[name]) do
             local buf = input_ar:get(filename)
             if buf then
                 return buf
@@ -151,6 +188,10 @@ function w2l:file_load(type, name)
         end
     elseif type == 'trigger' then
         return input_ar:get('trigger/' .. name) or input_ar:get('war3map.wtg.lml/' .. name)
+    elseif type == 'scripts' then
+        return input_ar:get('scripts/' .. name)
+    elseif type == 'plugin' then
+        return input_ar:get('plugin/' .. name)
     else
         if self.input_mode == 'lni' then
             return input_ar:get(type .. '/' .. name)
@@ -161,8 +202,8 @@ function w2l:file_load(type, name)
 end
 
 function w2l:file_remove(type, name)
-    if type == 'lni' then
-        for _, filename in ipairs(self.info.dir[name]) do
+    if type == 'table' then
+        for _, filename in ipairs(self.info.lni_dir[name]) do
             input_ar:remove(filename)
             output_ar:remove(filename)
         end
@@ -171,6 +212,12 @@ function w2l:file_remove(type, name)
         input_ar:remove('war3map.wtg.lml/' .. name, buf)
         output_ar:remove('trigger/' .. name, buf)
         output_ar:remove('war3map.wtg.lml/' .. name, buf)
+    elseif type == 'scripts' then
+        input_ar:remove('scripts/' .. name, buf)
+        output_ar:remove('scripts/' .. name, buf)
+    elseif type == 'plugin' then
+        input_ar:remove('plugin/' .. name, buf)
+        output_ar:remove('plugin/' .. name, buf)
     else
         if self.input_mode == 'lni' then
             input_ar:remove(type .. '/' .. name, buf)
@@ -194,19 +241,25 @@ function w2l:file_pairs()
         end
         index = name
         local type
-        if name:sub(-4) == '.mdx' or name:sub(-4) == '.mdl' or name:sub(-4) == '.blp' or name:sub(-4) == '.tga' then
+        local dir = name:match '^[^/\\]+' :lower()
+        local ext = name:match '[^%.]+$'
+        if ext == 'mdx' or ext == 'mdl' or ext == 'blp' or ext == 'tga' then
             type = 'resource'
-        elseif name:sub(-2) == '.j' then
-            type = 'jass'
-        elseif name:sub(-4) == '.lua' or name:sub(-4) == '.ini' then
-            type = 'lua'
-        elseif name:sub(-4) == '.mp3' or name:sub(-4) == '.wav' then
+        elseif ext == 'mp3' or ext == 'wav' then
             type = 'sound'
+        elseif name == 'scripts\\war3map.j' then
+            type = 'map'
+        elseif dir == 'scripts' then
+            type = 'scripts'
+        elseif dir == 'plugin' then
+            type = 'plugin'
         else
             type = 'map'
         end
-        if w2l.input_mode == 'lni' then
-            name = name:sub(#type + 2)
+        if w2l.input_mode == 'lni' or type == 'scripts' or type == 'plugin' then
+            if dir == type then
+                name = name:sub(#type + 2)
+            end
         end
         return type, name, buf
     end
@@ -214,13 +267,13 @@ end
 
 function w2l:mpq_load(filename)
     return w2l.mpq_path:each_path(function(path)
-        return io.load(fs.current_path() / config.mpq_path / path / filename)
+        return io.load(root / config.mpq_path / path / filename)
     end)
 end
 
 function w2l:prebuilt_load(filename)
     return w2l.mpq_path:each_path(function(path)
-        return io.load(fs.current_path() / config.prebuilt_path / path / filename)
+        return io.load(root / config.prebuilt_path / path / filename)
     end)
 end
 
@@ -228,17 +281,9 @@ function w2l:trigger_data()
     return triggerdata()
 end
 
-local function save_builder(doo)
+local function save_builder()
     if w2l.config.mode == 'lni' then
-        local path = output / 'builder.w3x'
-        local ex_map = builder.load(path, 'w')
-        ex_map:set('war3mapunits.doo', w2l:create_unitsdoo())
-        ex_map:set('war3map.doo', doo)
-        ex_map:set('war3map.w3e', w2l:create_w3e())
-        ex_map:set('war3map.w3i', w2l:backend_w3i(slk.w3i, slk.wts))
-        slk.w3i['地图']['地图名称'] = 'W2L\x01'
-        ex_map:save(slk.w3i, w2l.progress, false)
-        ex_map:close()
+        fs.copy_file(root / 'map-builder' / '.w3x', output / '.w3x', true)
     end
 end
 
@@ -253,6 +298,9 @@ local output_rate = get_io_time(output_ar)
 local frontend_rate = (1 - input_rate - output_rate) * 0.4
 local backend_rate = (1 - input_rate - output_rate) * 0.6
 
+print('正在检查插件...')
+plugin(w2l, config)
+
 print('正在读取文件...')
 w2l.progress:start(input_rate)
 input_ar:search_files(w2l.progress)
@@ -263,8 +311,8 @@ w2l.progress:start(input_rate + frontend_rate)
 w2l:frontend(slk)
 w2l.progress:finish()
 
-print('加载插件...')
-plugin(w2l, config)
+print('正在执行插件...')
+w2l:call_plugin('on_complete_data')
 
 print('正在转换...')
 w2l.progress:start(input_rate + frontend_rate + backend_rate)
@@ -277,5 +325,5 @@ w2l.progress:start(1)
 builder.save(w2l, output_ar, slk.w3i, input_ar)
 w2l.progress:finish()
 
-save_builder(doo)
+save_builder()
 print('转换完毕,用时 ' .. os.clock() .. ' 秒') 

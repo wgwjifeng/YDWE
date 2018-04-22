@@ -68,9 +68,9 @@ namespace process {
 				return 0;
 			}
 			if (type == 'r') {
-				return push(L, h, _O_RDONLY |_O_TEXT, "rt");
+				return push(L, h, _O_RDONLY | _O_BINARY, "rb");
 			}
-			return push(L, h, _O_WRONLY | _O_TEXT, "wt");
+			return push(L, h, _O_WRONLY | _O_BINARY, "wb");
 		}
 
 		static int peek(lua_State* L, int idx)
@@ -346,6 +346,31 @@ int luaopen_process(lua_State* L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
 	lua_pushcfunction(L, process::constructor);
+	return 1;
+}
+
+int set_filemode(lua_State* L) {
+	luaL_Stream* p = process::pipe::to(L, 1);
+	const char* mode = luaL_checkstring(L, 2);
+	if (p && p->f) {
+		if (mode[0] == 'b') {
+			_setmode(_fileno(p->f), _O_BINARY);
+		}
+		else {
+			_setmode(_fileno(p->f), _O_TEXT);
+		}
+	}
+	return 0;
+}
+
+extern "C" __declspec(dllexport)
+int luaopen_process_ext(lua_State* L)
+{
+	static luaL_Reg mt[] = {
+		{ "set_filemode", set_filemode },
+		{ NULL, NULL },
+	};
+	luaL_newlib(L, mt);
 	return 1;
 }
 

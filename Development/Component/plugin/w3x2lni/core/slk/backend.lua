@@ -15,27 +15,28 @@ local function to_lni(w2l, slk)
     for ttype, filename in pairs(w2l.info.lni) do
         count = count + 1
         local data = slk[ttype]
-        w2l.progress:start(count / 7)
+        w2l.progress:start(count / 8)
         local content = w2l:backend_lni(ttype, data)
         w2l.progress:finish()
         if content then
-            w2l:file_save('lni', ttype, content)
+            w2l:file_save('table', ttype, content)
         end
     end
 
     local content = w2l:backend_txtlni(slk['txt'])
     if content then
-        w2l:file_save('lni', 'txt', content)
+        w2l:file_save('table', 'txt', content)
     end
 end
 
 local function to_obj(w2l, slk)
     --转换物编
     local count = 0
-    for type, filename in pairs(w2l.info.obj) do
+    for _, type in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'doodad', 'destructable', 'misc'} do
+        local filename = w2l.info.obj[type]
         count = count + 1
         local data = slk[type]
-        w2l.progress:start(count / 7)
+        w2l.progress:start(count / 8)
         local content = w2l:backend_obj(type, data, slk.wts)
         w2l.progress:finish()
         if content then
@@ -45,11 +46,12 @@ local function to_obj(w2l, slk)
 
     local content = w2l:backend_txtlni(slk['txt'])
     if content then
-        w2l:file_save('lni', 'txt', content)
+        w2l:file_save('table', 'txt', content)
     end
 end
 
 local function convert_wtg(w2l)
+    w2l:backend_convertwtg(w2l.slk.wts)
     local wtg_data, wct_data
     w2l.progress:start(0.1)
     local wtg = w2l:file_load('map', 'war3map.wtg')
@@ -86,7 +88,7 @@ local function convert_wtg(w2l)
                 w2l:file_save('trigger', filename, buf)
             end
         else
-            w2l:file_save('map', 'war3map.wtg', w2l:backend_wtg(wtg_data))
+            w2l:file_save('map', 'war3map.wtg', w2l:backend_wtg(wtg_data, w2l.slk.wts))
             w2l:file_save('map', 'war3map.wct', w2l:backend_wct(wct_data))
         end
     end
@@ -174,6 +176,7 @@ local function remove_unuse(w2l, slk)
         upgrade = {},
         doodad = {},
         destructable = {},
+        misc = {},
     }
     for type, list in pairs(slk.mustuse) do
         for _, id in ipairs(list) do
@@ -255,7 +258,7 @@ local function to_slk(w2l, slk)
         w2l:file_save('map', output[type], txt[type])
     end
 
-    for _, type in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'destructable', 'doodad'} do
+    for _, type in ipairs {'ability', 'buff', 'unit', 'item', 'upgrade', 'destructable', 'doodad', 'misc'} do
         local data = object[type] or slk[type]
         local content = w2l:backend_obj(type, data, slk.wts)
         if content then
@@ -304,11 +307,11 @@ local function clean_file(w2l, slk)
         w2l:file_remove('map', filename)
     end
     for ttype, filename in pairs(w2l.info.lni) do
-        w2l:file_remove('lni', ttype)
+        w2l:file_remove('table', ttype)
     end
-    w2l:file_remove('lni', 'txt')
-    w2l:file_remove('lni', 'w3i')
-    w2l:file_remove('lni', 'doo')
+    w2l:file_remove('table', 'txt')
+    w2l:file_remove('table', 'w3i')
+    w2l:file_remove('table', 'doo')
 end
 
 return function (w2l, slk)
@@ -317,7 +320,7 @@ return function (w2l, slk)
     clean_file(w2l, slk)
     if slk.w3i then
         if w2l.config.mode == 'lni' then
-            w2l:file_save('lni', 'w3i', w2l:backend_w3i2lni(slk.w3i), slk.wts)
+            w2l:file_save('table', 'w3i', w2l:backend_w3i2lni(slk.w3i), slk.wts)
             w2l:file_remove('map', 'war3map.w3i')
         else
             w2l:file_save('map', 'war3map.w3i', w2l:backend_w3i(slk.w3i, slk.wts))
@@ -367,38 +370,36 @@ return function (w2l, slk)
     w2l.progress:start(0.8)
     if not w2l.config.remove_we_only then
         w2l.message('转换触发器...')
-        w2l:backend_convertwtg(slk.wts)
         convert_wtg(w2l)
     end
     w2l.progress:finish()
 
-    w2l.message('转换脚本...')
-    w2l:backend_convertjass(slk.wts)
+    if w2l.config.optimize_jass then
+        w2l.message('优化脚本...')
+        w2l:backend_optimizejass()
+    end
     w2l.progress(0.9)
 
     w2l.message('转换其他文件...')
-    w2l:file_save('map', 'war3mapmisc.txt', w2l:backend_misc(slk.misc, slk.txt, slk.wts))
-    w2l.progress(0.92)
-
     local buf = w2l:file_load('map', 'war3mapskin.txt')
     if buf then
         local skin = w2l:parse_ini(buf)
         w2l:file_save('map', 'war3mapskin.txt', w2l:backend_skin(skin, slk.wts))
     end
-    w2l.progress(0.94)
+    w2l.progress(0.92)
 
-    w2l.message('重新生成字符串...')
+    w2l.message('转换脚本...')
+    w2l:backend_convertjass(slk.wts)
+
+    w2l.progress(0.95)
+
+    w2l.message('重新生成长文本...')
     local content = w2l:refresh_wts(slk.wts)
     if content and #content > 0 then
         w2l:file_save('map', 'war3map.wts', content)
     else
         w2l:file_remove('map', 'war3map.wts')
     end
-    w2l.progress(0.95)
 
-    if w2l.config.optimize_jass then
-        w2l.message('优化脚本...')
-        w2l:backend_optimizejass()
-    end
     w2l.progress(1)
 end

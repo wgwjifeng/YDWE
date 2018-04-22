@@ -43,6 +43,14 @@ local mustuse =  {
         'Xfns','Xfnm','Xfnl',
         'Xfus','Xfum','Xful',
     },
+    misc = {
+        'FontHeights',
+        'InfoPanel',
+        'Misc',
+        'PingColor',
+        'QuestIndicatorTimeout',
+        'SelectionCircle',
+    }
 }
 
 -- 目前是技能专属
@@ -304,56 +312,12 @@ local function mark_doo(w2l, slk)
 end
 
 local function mark_lua(w2l, slk)
-    local buf = w2l:file_load('lua', 'reference.lua')
-    if not buf then
-        return
-    end
-    local archive = {}
-    function archive:get(filename)
-        return w2l:file_load('map', filename)
-    end
-    function archive:set(filename, buf)
-        if buf then
-            return w2l:file_save('map', filename, buf)
-        else
-            return w2l:file_remove('map', filename)
-        end
-    end
-    local env = {
-        archive  = archive,
-        assert   = assert,
-        error    = error,
-        ipairs   = ipairs,
-        load     = load,
-        pairs    = pairs,
-        next     = next,
-        print    = print,
-        select   = select,
-        tonumber = tonumber,
-        tostring = tostring,
-        type     = type,
-        pcall    = pcall,
-        xpcall   = xpcall,
-        math     = math,
-        string   = string,
-        table    = table,
-        utf8     = utf8,
-    }
-    local f, e = load(buf, 'reference.lua', 't', env)
-    if not f then
-        report('简化时没有找到对象:', e)
-        return
-    end
-    local suc, list = pcall(f)
-    if not suc then
-        report('简化时没有找到对象:', list)
-        return
-    end
+    local list = w2l:call_plugin('on_mark_object')
     if type(list) ~= 'table' then
         return
     end
     for name in pairs(list) do
-        current_root = {name, "reference.lua指定保留的'%s'[%s]引用了它"}
+        current_root = {name, "插件指定保留的'%s'[%s]引用了它"}
         mark(slk, name)
     end
 end

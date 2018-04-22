@@ -18,9 +18,10 @@ local type_map = {
 }
 
 local import_files
+local map
 
 local function initialize()
-    local map = stormlib.attach(map_handle)
+    map = stormlib.attach(map_handle)
     if not map then
         return
     end
@@ -32,7 +33,7 @@ local function initialize()
         return mpqloader:load(mpq_path, filename)
     end
 
-    local prebuilt_path = ydpath / 'share' / 'script' / 'ydwe' / 'prebuilt'
+    local prebuilt_path = ydpath / 'script' / 'ydwe' / 'prebuilt'
     function w2l:prebuilt_load(filename)
         return mpqloader:load(prebuilt_path, filename)
     end
@@ -71,6 +72,7 @@ trg = event.on('编译地图', function ()
             log.info('Import customdata', filename, type_map[filename], tmp)
             io.save(tmp, buf)
             we.import_customdata(type_map[filename], tmp)
+            map:save_file(filename, buf)
         end
     end
 end)

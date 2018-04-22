@@ -21,7 +21,7 @@ function mini:init()
     title:setmousedowncanmovewindow(true)
     view:addchildview(title)
 
-    local title_label = gui.Label.create('Slk优化')
+    local title_label = gui.Label.create('')
     title_label:setstyle { Height = 20, Width = 80 }
     title_label:setcolor('#eee')
     title_label:setfont(gui.Font.create('宋体', 16, "bold", "normal"))
@@ -49,6 +49,7 @@ function mini:init()
     ext.hide_in_taskbar()
 
     self._label = label
+    self._title = title_label
     self._progressbar = pb
     self._window = win
     self._view = view
@@ -56,6 +57,10 @@ end
 
 function mini:settext(text)
     self._label:settext(text)
+end
+
+function mini:settitle(title)
+    self._title:settext(title)
 end
 
 function mini:setvalue(value)
@@ -95,34 +100,91 @@ local worker = backend:open('map.lua', pack_arg())
 backend.message = '正在初始化...'
 backend.progress = 0
 
+local function sortpairs(t)
+    local sort = {}
+    for k, v in pairs(t) do
+        sort[#sort+1] = {k, v}
+    end
+    table.sort(sort, function (a, b)
+        return a[1] < b[1]
+    end)
+    local n = 1
+    return function()
+        local v = sort[n]
+        if not v then
+            return
+        end
+        n = n + 1
+        return v[1], v[2]
+    end
+end
+
+local function create_report()
+    for type, report in sortpairs(backend.report) do
+        if type ~= '' then
+            type = type:sub(2)
+            print('================')
+            print(type)
+            print('================')
+            for _, s in ipairs(report) do
+                if s[2] then
+                    print(('%s - %s'):format(s[1], s[2]))
+                else
+                    print(s[1])
+                end
+            end
+            print('')
+        end
+    end
+    local report = backend.report['']
+    if report then
+        for _, s in ipairs(report) do
+            if s[2] then
+                print(('%s - %s'):format(s[1], s[2]))
+            else
+                print(s[1])
+            end
+        end
+    end
+end
+
 local function update()
     worker:update()
     mini:settext(backend.message)
+    mini:settitle(backend.title)
     mini:setvalue(backend.progress)
     if #worker.error > 0 then
         messagebox('错误', worker.error)
         worker.error = ''
-        return 0
+        return 0, 1
     end
     if worker.exited then
-        return 1000
+        create_report()
+        if worker.exit_code == 0 then
+            return 1000, 0
+        else
+            return 0, worker.exit_code
+        end
     end
 end
 
 local function delayedtask()
-    local ok, r = xpcall(update, debug.traceback)
+    local ok, r, code = xpcall(update, debug.traceback)
     if not ok then
         messagebox('错误', r)
         mini:close()
+        os.exit(1, true)
         return
     end
     if r then
         if r > 0 then
             gui.MessageLoop.postdelayedtask(r, function()
                 mini:close()
+                os.exit(code, true)
             end)
         else
             mini:close()
+            os.exit(code, true)
         end
         return
     end

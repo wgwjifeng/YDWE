@@ -2,6 +2,7 @@ local process = require 'process'
 
 local backend = {}
 backend.message = ''
+backend.title = ''
 backend.progress = nil
 backend.report = {}
 backend.lastreport = nil
@@ -49,6 +50,7 @@ function mt:update_pipe()
     if not self.process:is_running() then
         self.output = self.output .. self.out_rd:read 'a'
         self.error = self.error .. self.err_rd:read 'a'
+        self.exit_code = self.process:wait()
         self.process:close()
         return true
     end
@@ -76,6 +78,8 @@ function mt:update_message(pos)
                 push_report(key:sub(8), value)
             elseif key == 'tip' then
                 backend.lastreport[2] = value
+            elseif key == 'title' then
+                backend.title = value
             end
             msg = ''
         end

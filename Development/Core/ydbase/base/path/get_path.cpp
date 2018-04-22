@@ -4,12 +4,10 @@
 #include <base/win/env_variable.h>
 #include <Windows.h>
 #include <assert.h>
-#include <Psapi.h>
 #pragma warning(push)
 #pragma warning(disable:6387)
 #include <Shlobj.h>
 #pragma warning(pop)
-#pragma comment(lib, "Psapi.lib")
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -147,38 +145,6 @@ namespace base { namespace path {
 		}
 
 		throw windows_exception("::GetModuleFileNameW failed.");
-	}
-
-	fs::path module(HANDLE process_handle, HMODULE module_handle)
-	{
-		wchar_t buffer[MAX_PATH];
-		DWORD path_len = ::GetModuleFileNameExW(process_handle, module_handle, buffer, _countof(buffer));
-		if (path_len == 0)
-		{
-			throw windows_exception("::GetModuleFileNameExW failed.");
-		}
-
-		if (path_len < _countof(buffer))
-		{
-			return std::move(fs::path(buffer, buffer + path_len));
-		}
-
-		for (size_t buf_len = 0x200; buf_len <= 0x10000; buf_len <<= 1)
-		{
-			std::dynarray<wchar_t> buf(path_len);
-			path_len = ::GetModuleFileNameExW(process_handle, module_handle, buf.data(), buf.size());
-			if (path_len == 0)
-			{
-				throw windows_exception("::GetModuleFileNameExW failed.");
-			}
-
-			if (path_len < _countof(buffer))
-			{
-				return std::move(fs::path(buf.begin(), buf.end()));
-			}
-		}
-
-		throw windows_exception("::GetModuleFileNameExW failed.");
 	}
 
 	fs::path get(PATH_TYPE type)

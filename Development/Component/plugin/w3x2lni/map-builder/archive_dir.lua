@@ -10,12 +10,19 @@ local function task(f, ...)
     return false
 end
 
+local ignore = {}
+for _, name in ipairs {'.git', '.svn', '.vscode', '.gitignore'} do
+    ignore[name] = true
+end
+
 local function scan_dir(dir, callback)
     for path in dir:list_directory() do
-        if fs.is_directory(path) then
-            scan_dir(path, callback)
-        else
-            callback(path)
+        if not ignore[path:filename():string()] then
+            if fs.is_directory(path) then
+                scan_dir(path, callback)
+            else
+                callback(path)
+            end
         end
     end
 end
@@ -23,15 +30,7 @@ end
 local mt = {}
 mt.__index = mt
 
-function mt:save()
-    if fs.exists(self.path) then
-        if not task(fs.remove_all, self.path) then
-            error(('无法清空目录[%s]，请检查目录是否被占用。'):format(self.path:string()))
-        end
-    end
-    if not task(fs.create_directories, self.path) then
-        error(('无法创建目录[%s]，请检查目录是否被占用。'):format(self.path:string()))
-    end
+function mt:save(path, dirs)
     return true
 end
 
@@ -40,9 +39,11 @@ end
 
 function mt:count_files()
     local count = 0
-    scan_dir(self.path, function ()
-        count = count + 1
-    end)
+    for _, name in ipairs {'map', 'resource', 'scripts', 'sound', 'trigger', 'plugin'} do
+        scan_dir(self.path / name, function ()
+            count = count + 1
+        end)
+    end
     return count
 end
 
@@ -69,7 +70,10 @@ function mt:load_file(name)
 end
 
 function mt:save_file(name, buf, filetime)
-    fs.create_directories((self.path / name):remove_filename())
+    local dir = (self.path / name):remove_filename()
+    if not fs.exists(dir) then
+        fs.create_directories(dir)
+    end
     io.save(self.path / name, buf)
     return true
 end
