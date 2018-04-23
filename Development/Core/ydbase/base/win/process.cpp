@@ -5,11 +5,9 @@
 #include <Windows.h>
 #include <memory>
 #include <deque>
-#include <strsafe.h>
-#include <cassert>
+#include <assert.h>
 #if !defined(DISABLE_DETOURS)
-#include <detours.h>	  
-#pragma comment(lib, "detours.lib")
+#include <detours.h>
 #endif
 
 namespace base { namespace win {
@@ -35,7 +33,7 @@ namespace base { namespace win {
 			if (fs::exists(injectdll_x86) || fs::exists(injectdll_x64))
 			{
 				pause = true;
-#if !defined(DISABLE_DETOURS)
+#if 0
 				suc = !!DetourCreateProcessWithDllW(
 					application, command_line,
 					NULL, NULL,

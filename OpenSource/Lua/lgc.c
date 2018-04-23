@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.214 2016/11/07 12:38:35 roberto Exp roberto $
+** $Id: lgc.c,v 2.215 2016/12/22 13:08:50 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -650,8 +650,9 @@ static void clearkeys (global_State *g, GCObject *l, GCObject *f) {
     for (n = gnode(h, 0); n < limit; n++) {
       if (!ttisnil(gval(n)) && (iscleared(g, gkey(n)))) {
         setnilvalue(gval(n));  /* remove value ... */
-        removeentry(n);  /* and remove entry from table */
       }
+      if (ttisnil(gval(n)))  /* is entry empty? */
+        removeentry(n);  /* remove entry from table */
     }
   }
 }

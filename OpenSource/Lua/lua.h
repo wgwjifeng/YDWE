@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.331 2016/05/30 15:53:28 roberto Exp roberto $
+** $Id: lua.h,v 1.332 2016/12/22 15:51:20 roberto Exp $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -404,6 +404,7 @@ LUA_API void      (lua_setallocf) (lua_State *L, lua_Alloc f, void *ud);
 #define LUA_HOOKLINE	2
 #define LUA_HOOKCOUNT	3
 #define LUA_HOOKTAILCALL 4
+#define LUA_HOOKEXCEPTION 5
 
 
 /*
@@ -413,6 +414,7 @@ LUA_API void      (lua_setallocf) (lua_State *L, lua_Alloc f, void *ud);
 #define LUA_MASKRET	(1 << LUA_HOOKRET)
 #define LUA_MASKLINE	(1 << LUA_HOOKLINE)
 #define LUA_MASKCOUNT	(1 << LUA_HOOKCOUNT)
+#define LUA_MASKEXCEPTION	(1 << LUA_HOOKEXCEPTION)
 
 typedef struct lua_Debug lua_Debug;  /* activation record */
 

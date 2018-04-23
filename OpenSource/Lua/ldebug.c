@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.120 2016/03/31 19:01:21 roberto Exp roberto $
+** $Id: ldebug.c,v 2.121 2016/10/19 12:32:10 roberto Exp $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -638,6 +638,8 @@ const char *luaG_addinfo (lua_State *L, const char *msg, TString *src,
 
 
 l_noret luaG_errormsg (lua_State *L) {
+  if (L->hookmask & LUA_MASKEXCEPTION)
+    luaD_hook(L, LUA_HOOKEXCEPTION, -1);
   if (L->errfunc != 0) {  /* is there an error handling function? */
     StkId errfunc = restorestack(L, L->errfunc);
     setobjs2s(L, L->top, L->top - 1);  /* move argument */
@@ -653,6 +655,7 @@ l_noret luaG_runerror (lua_State *L, const char *fmt, ...) {
   CallInfo *ci = L->ci;
   const char *msg;
   va_list argp;
+  luaC_checkGC(L);  /* error message uses memory */
   va_start(argp, fmt);
   msg = luaO_pushvfstring(L, fmt, argp);  /* format message */
   va_end(argp);

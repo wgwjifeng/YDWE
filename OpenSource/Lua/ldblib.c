@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.150 2015/11/19 19:16:22 roberto Exp roberto $
+** $Id: ldblib.c,v 1.151 2015/11/23 11:29:43 roberto Exp $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -326,6 +326,7 @@ static int makemask (const char *smask, int count) {
   if (strchr(smask, 'c')) mask |= LUA_MASKCALL;
   if (strchr(smask, 'r')) mask |= LUA_MASKRET;
   if (strchr(smask, 'l')) mask |= LUA_MASKLINE;
+  if (strchr(smask, 'e')) mask |= LUA_MASKEXCEPTION;
   if (count > 0) mask |= LUA_MASKCOUNT;
   return mask;
 }
@@ -339,6 +340,7 @@ static char *unmakemask (int mask, char *smask) {
   if (mask & LUA_MASKCALL) smask[i++] = 'c';
   if (mask & LUA_MASKRET) smask[i++] = 'r';
   if (mask & LUA_MASKLINE) smask[i++] = 'l';
+  if (mask & LUA_MASKEXCEPTION) smask[i++] = 'e';
   smask[i] = '\0';
   return smask;
 }
