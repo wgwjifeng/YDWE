@@ -1,3 +1,4 @@
+local lang = require 'lang'
 local w2l
 local std_type = type
 local mustuse =  {
@@ -50,6 +51,7 @@ local mustuse =  {
         'PingColor',
         'QuestIndicatorTimeout',
         'SelectionCircle',
+        'HERO',
     }
 }
 
@@ -74,6 +76,10 @@ local mustmark = {
     Asta = { 'Bstt', 'buff' },
     -- 运输船保持原位
     Achd = { 'Bchd', 'buff' },
+    -- 生命恢复光环
+    Aoar = { 'Boar', 'buff' },
+    -- 魔法恢复光环
+    Aarm = { 'Barm', 'buff' },
 }
 
 local slk
@@ -81,6 +87,7 @@ local buffmap
 local search
 local mark_known_type
 local report_once = {}
+local report_cache = {}
 local current_root = {'', '%s%s'}
 
 local function get_displayname(o)
@@ -89,6 +96,8 @@ local function get_displayname(o)
         name = o.bufftip or o.editorname or ''
     elseif o._type == 'upgrade' then
         name = o.name[1] or ''
+    elseif o._type == 'doodad' or o._type == 'destructable' then
+        name = w2l:get_editstring(o.name or '')
     else
         name = o.name or ''
     end
@@ -127,20 +136,19 @@ local function report(type, id)
         return
     end
     report_once[type][id] = true
-    w2l.message('-report|4简化', type, id)
-    w2l.message('-tip', format_marktip(slk, current_root))
+    report_cache[#report_cache+1] = {('%s \'%s\''):format(type, id), format_marktip(slk, current_root)}
 end
 
 local function mark_value(slk, type, value, nosearch)
     if std_type(value) == 'string' then
         for _, name in ipairs(split(value)) do
             if not mark_known_type(slk, type, name, nosearch) then
-                report('简化时没有找到对象:', name)
+                report(lang.report.DIDNT_FIND_OBJECT_WHEN_SIMPLIFY, name)
             end
         end
     else
         if not mark_known_type(slk, type, value, nosearch) then
-            report('简化时没有找到对象:', value)
+            report(lang.report.DIDNT_FIND_OBJECT_WHEN_SIMPLIFY, value)
         end
     end
 end
@@ -169,7 +177,7 @@ local function mark_known_type2(slk, type, name, nosearch)
         local o = slk.txt[name:lower()]
         if o then
             o._mark = current_root
-            report('引用未分类对象: ', ('%s 期望分类：%s'):format(name:lower(), type))
+            report_cache[#report_cache+1] = {lang.report.USE_UNCLASSIFIED_OBJECT:format(name:lower()), lang.report.EXPECTATION_CLASSIFICATION:format(type)}
             return true
         end
         return false
@@ -185,7 +193,7 @@ local function mark_known_type2(slk, type, name, nosearch)
             local marklist = mustmark[o._code]
             if marklist then
                 if not mark_known_type(slk, marklist[2], marklist[1]) then
-                    report('简化时没有找到对象:', marklist[1])
+                    report(lang.report.DIDNT_FIND_OBJECT_WHEN_SIMPLIFY, marklist[1])
                 end
             end
         end
@@ -215,9 +223,9 @@ end
 local function mark_mustuse(slk)
     for type, list in pairs(mustuse) do
         for _, name in ipairs(list) do
-            current_root = {name, "必须保留的'%s'[%s]引用了它"}
+            current_root = {name, lang.report.REFERENCE_BY_MUST_RETAIN}
             if not mark_known_type(slk, type, name) then
-                report('简化时没有找到对象:', name)
+                report(lang.report.DIDNT_FIND_OBJECT_WHEN_SIMPLIFY, name)
             end
         end
     end
@@ -239,22 +247,22 @@ local function mark_jass(slk, list, flag)
     end
     if list then
         for name in pairs(list) do
-            current_root = {name, "脚本里的'%s'[%s]引用了它"}
+            current_root = {name, lang.report.REFERENCE_BY_JASS_NAME}
             mark(slk, name)
         end
     end
     if flag.building or flag.creeps then
-        local maptile = slk.w3i and slk.w3i['地形']['地形类型'] or '*'
+        local maptile = slk.w3i and slk.w3i[lang.w3i.MAP_INFO][lang.w3i.MAP_MAIN_GROUND] or '*'
         for _, obj in pairs(slk.unit) do
             if obj.race == 'creeps' and obj.tilesets and (obj.tilesets == '*' or obj.tilesets:find(maptile)) then
                 -- 随机建筑
                 if flag.building and obj.isbldg == 1 and obj.nbrandom == 1 then
-                    current_root = {obj._id, "保留的野怪建筑'%s'[%s]引用了它"}
+                    current_root = {obj._id, lang.report.REFERENCE_BY_CREEP_BUILDING}
                     mark_known_type(slk, 'unit', obj._id)
                 end
                 -- 随机单位
                 if flag.creeps and obj.isbldg == 0 and obj.special == 0 then
-                    current_root = {obj._id, "保留的野怪单位'%s'[%s]引用了它"}
+                    current_root = {obj._id, lang.report.REFERENCE_BY_CREEP_UNIT}
                     mark_known_type(slk, 'unit', obj._id)
                 end
             end
@@ -263,7 +271,7 @@ local function mark_jass(slk, list, flag)
     if flag.item then
         for _, obj in pairs(slk.item) do
             if obj.pickrandom == 1 then
-                current_root = {obj._id, "保留的随机物品'%s'[%s]引用了它"}
+                current_root = {obj._id, lang.report.REFERENCE_BY_RANDOM_ITEM}
                 mark_known_type(slk, 'item', obj._id)
             end
         end
@@ -281,11 +289,10 @@ local function mark_marketplace(slk, flag)
         -- 是否使用了市场
         if obj._mark and obj._name == 'marketplace' then
             search_marketplace = true
-            w2l.message('-report|4简化', '保留市场物品')
-            w2l.message('-tip', ("使用了市场'%s'[%s]"):format(obj.name, obj._id))
+            report_cache[#report_cache+1] = {lang.report.RETAIN_MARKET, lang.report.RETAIN_MARKET_HINT:format(obj.name, obj._id)}
             for _, obj in pairs(slk.item) do
                 if obj.pickrandom == 1 and obj.sellable == 1 then
-                    current_root = {obj._id, "保留的市场物品'%s'[%s]引用了它"}
+                    current_root = {obj._id, lang.report.REFERENCE_BY_MARKET_ITEM}
                     mark_known_type(slk, 'item', obj._id)
                 end
             end
@@ -300,24 +307,24 @@ local function mark_doo(w2l, slk)
         return
     end
     for name in pairs(destructable) do
-        current_root = {name, "地图上放置的'%s'[%s]引用了它"}
+        current_root = {name, lang.report.REFERENCE_BY_PLACING}
         if not mark_known_type(slk, 'destructable', name) then
             mark_known_type(slk, 'doodad', name)
         end
     end
     for name in pairs(doodad) do
-        current_root = {name, "地图上放置的'%s'[%s]引用了它"}
+        current_root = {name, lang.report.REFERENCE_BY_PLACING}
         mark_known_type(slk, 'doodad', name)
     end
 end
 
 local function mark_lua(w2l, slk)
-    local list = w2l:call_plugin('on_mark_object')
+    local list = w2l:call_plugin('on_mark')
     if type(list) ~= 'table' then
         return
     end
     for name in pairs(list) do
-        current_root = {name, "插件指定保留的'%s'[%s]引用了它"}
+        current_root = {name, lang.report.REFERENCE_BY_PLUGIN}
         mark(slk, name)
     end
 end
@@ -345,4 +352,11 @@ return function(w2l_, slk_)
     mark_doo(w2l, slk)
     mark_lua(w2l, slk)
     mark_marketplace(slk, jassflag)
+    if #report_cache > 0 then
+        w2l.messager.report(lang.report.SIMPLIFY, 4, 'TOTAL:' .. #report_cache)
+        for _, rep in ipairs(report_cache) do
+            w2l.messager.report(lang.report.SIMPLIFY, 4, rep[1], rep[2])
+        end
+        w2l.messager.report(lang.report.SIMPLIFY, 4, '-------------------------------------------')
+    end
 end

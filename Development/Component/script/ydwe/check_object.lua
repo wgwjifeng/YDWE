@@ -8,7 +8,48 @@ local defined  = w2l / 'defined'
 local mpq      = root / 'share' / 'mpq'
 
 local info       = lni(assert(io.load(w2l / 'info.ini')), 'info.ini')
-local typedefine = lni(assert(io.load(defined / 'typedefine.ini')), 'typedefine.ini')
+local typedefine = {
+    aibuffer = 3,
+    armortype = 3,
+    attackbits = 0,
+    attacktype = 3,
+    attributetype = 3,
+    bool = 0,
+    channelflags = 0,
+    channeltype = 0,
+    combatsound = 3,
+    deathtype = 0,
+    defensetype = 3,
+    defensetypeint = 0,
+    detectiontype = 0,
+    fullflags = 0,
+    int = 0,
+    interactionflags = 0,
+    itemclass = 3,
+    lightningeffect = 3,
+    morphflags = 0,
+    movetype = 3,
+    pathinglistprevent = 3,
+    pathinglistrequire = 3,
+    pickflags = 0,
+    real = 1,
+    regentype = 3,
+    shadowimage = 3,
+    silenceflags = 0,
+    spelldetail = 0,
+    stackflags = 0,
+    targetlist = 3,
+    targettype = 3,
+    teamcolor = 0,
+    techavail = 0,
+    unitclass = 3,
+    unitrace = 3,
+    unreal = 2,
+    upgradeclass = 3,
+    upgradeeffect = 3,
+    versionflags = 0,
+    weapontype = 3,
+}
 
 local select        = select
 local tonumber      = tonumber
@@ -89,7 +130,7 @@ end
 local function unpack_obj()
     local parent, name, count = unpack 'c4c4l'
     for i = 1, count do
-        unpack_data(name)
+        unpack_data(name == '\0\0\0\0' and parent or name)
     end
 end
 

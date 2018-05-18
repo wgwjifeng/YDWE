@@ -1,6 +1,8 @@
+local lang = require 'lang'
 local lines
 local jass
 local report
+local messager
 
 local current_function
 local get_exp
@@ -286,7 +288,7 @@ function get_exp(exp, op, pos)
         end
         return value
     end
-    print('未知的表达式类型', exp.type)
+    messager(lang.report.UNEXPECT_EXP, exp.type)
     return nil
 end
 
@@ -299,7 +301,7 @@ end
 
 local function add_global(global)
     if not global.used then
-        report('未引用的全局变量', global.name, ('第[%d]行'):format(global.line))
+        report(lang.report.UNREFERENCE_GLOBAL, global.name, lang.report.JASS_LINE:format(global.line))
         return
     end
     current_line = global.line
@@ -325,7 +327,7 @@ end
 
 local function add_local(loc)
     if not loc.used then
-        report('未引用的局部变量', current_function.name, ('第[%d]行：[%s]'):format(loc.line, loc.name))
+        report(lang.report.UNREFERENCE_LOCAL, current_function.name, (lang.report.JASS_LINE .. '[%s]'):format(loc.line, loc.name))
         return
     end
     current_line = loc.line
@@ -434,7 +436,7 @@ local function add_ifs(chunk)
         elseif data.type == 'else' then
             add_else(data)
         else
-            print('未知的判断类型', line.type)
+            messager(lang.report.UNEXPECT_LOGIC, line.type)
         end
     end
     insert_line('endif')
@@ -464,7 +466,7 @@ function add_lines(chunk)
         elseif line.type == 'loop' then
             add_loop(line)
         else
-            print('未知的代码行类型', line.type)
+            messager(lang.report.UNEXPECT_CHUNK, line.type)
         end
     end
 end
@@ -490,7 +492,7 @@ end
 
 local function add_native(func)
     if not func.used then
-        report('未引用的函数', func.name, ('第[%d]行'):format(func.line))
+        report(lang.report.UNREFERENCE_FUNCTION, func.name, lang.report.JASS_LINE:format(func.line))
         return
     end
     current_function = func
@@ -499,7 +501,7 @@ end
 
 local function add_function(func)
     if not func.used then
-        report('未引用的函数', func.name, ('第[%d]-[%d]行'):format(func.line, func.endline))
+        report(lang.report.UNREFERENCE_FUNCTION, func.name, lang.report.JASS_LINES:format(func.line, func.endline))
         return
     end
     current_function = func
@@ -520,10 +522,11 @@ local function add_functions()
     end
 end
 
-return function (ast, _report)
+return function (ast, _report, _messager)
     lines = {}
     jass = ast
     report = _report
+    messager = _messager
     
     add_globals()
     add_functions()

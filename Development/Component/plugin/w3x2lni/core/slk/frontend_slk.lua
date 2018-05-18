@@ -1,4 +1,5 @@
 local w3xparser = require 'w3xparser'
+local lang = require 'lang'
 
 local math_floor = math.floor
 local pairs = pairs
@@ -78,8 +79,7 @@ local function slk_update_level(table, slk, update_level)
         if not obj._max_level or obj._max_level == 0 then
             obj._max_level = 1
         elseif obj._max_level and obj._max_level > 10000 then
-            w2l.message('-report|9其他', ('对象等级太高[%s][%d]'):format(name, obj._max_level))
-            w2l.message('-tip', '可能会影响此工具的性能')
+            w2l.messager.report(lang.report.OTHER, 9, lang.report.OBJECT_LEVEL_TOO_HIGHT:format(name, obj._max_level), lang.report.OBJECT_LEVEL_TOO_HIGHT_HINT)
         end
     end
 end
@@ -211,7 +211,10 @@ local function slk_misc(table, misc, txt)
             for key, meta in pairs(meta) do
                 txt_read_data(name, obj, key, meta, misc[lname] or txt[lname])
             end
-            txt[lname] = nil
+            if txt[lname] then
+                obj._source = 'slk'
+                txt[lname] = nil
+            end
         end
     end
 end
@@ -280,6 +283,9 @@ return function(w2l_, loader)
         w2l.progress(count / 8)
     end
     -- 特殊处理misc
+    -- misc的底板来自3个文件，但其中AB文件我们永远不会生成，C文件在slk后会变成空白文件。
+    -- 作为差异的war3mapmisc.txt需要根据数据来源来清理重复数据，其中来自AB文件的数据总是
+    -- 和底板进行差异对比，来自C文件的数据在slk时将底板当做空白处理。
     datas.misc = {}
     slk_misc(datas.misc, misc, txt)
     

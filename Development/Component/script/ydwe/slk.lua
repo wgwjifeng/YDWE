@@ -5,6 +5,8 @@ local stormlib  = require 'ffi.stormlib'
 local mpqloader = require 'mpqloader'
 local i18n = require 'i18n'
 local event = require 'ev'
+local slk_lib = require 'slk_lib'
+local defined = require 'defined'
 local map_handle = __map_handle__.handle
 
 local type_map = {
@@ -33,6 +35,13 @@ local function initialize()
         return mpqloader:load(mpq_path, filename)
     end
 
+    local defined_path = ydpath / 'share' / 'mpq' / 'defined'
+    function w2l:defined_load(filename)
+        return io.load(defined_path / filename)
+    end
+
+    defined(w2l)
+
     local prebuilt_path = ydpath / 'script' / 'ydwe' / 'prebuilt'
     function w2l:prebuilt_load(filename)
         return mpqloader:load(prebuilt_path, filename)
@@ -53,7 +62,7 @@ local function initialize()
         log.info('Object remove', filename)
     end
 
-    return w2l:slk_lib(false, true)
+    return slk_lib(w2l, false, true)
 end
 
 local trg

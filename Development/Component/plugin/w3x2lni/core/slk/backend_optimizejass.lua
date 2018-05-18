@@ -1,7 +1,8 @@
 local parser    = require 'parser.init'
 local optimizer = require 'optimizer.init'
+local lang = require 'lang'
 
-local function create_report(w2l, report, title, type, max)
+local function create_report(w2l, report, type, max)
     local msgs = report[type]
     if not msgs then
         return
@@ -10,16 +11,23 @@ local function create_report(w2l, report, title, type, max)
     if #msgs > max then
         fix = math.random(0, #msgs - max)
     end
-    if title then
-        w2l.message('-report|8脚本优化', ('%d.%s    总计：%d'):format(title, type, #msgs))
-    end
+    w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, '--------------------------------------------------')
+    w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, lang.report.OPTIMIZE_JASS_RESULT:format(type, #msgs))
+    w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, '--------------------------------------------------')
     for i = 1, max do
         local msg = msgs[i+fix]
         if msg then
-            w2l.message('-report|8脚本优化', msg[1])
-            w2l.message('-tip', msg[2])
+            w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, msg[1], msg[2])
         end
     end
+end
+
+local function count_report(report)
+    local n = 0 
+    for _, msgs in pairs(report) do
+        n = n + #msgs
+    end
+    return n
 end
 
 return function (w2l)
@@ -27,15 +35,28 @@ return function (w2l)
     local blizzard = w2l:file_load('map', 'blizzard.j') or w2l:file_load('map', 'scripts\\blizzard.j') or w2l:mpq_load('scripts\\blizzard.j')
     local war3map  = w2l:file_load('map', 'war3map.j')  or w2l:file_load('map', 'scripts\\war3map.j')
     if not war3map then
-        w2l.message('-report|1严重错误', '没有找到脚本')
+        w2l.messager.report(lang.report.ERROR, 1, lang.report.NO_JASS)
         return
     end
-    local ast
-    ast = parser(common,   'common.j',   ast)
-    ast = parser(blizzard, 'blizzard.j', ast)
-    ast = parser(war3map,  'war3map.j',  ast)
-    
-    local buf, report = optimizer(ast, w2l.config)
+    local function messager(...)
+        local t = table.pack(...)
+        for i = 1, t.n do
+            t[i] = tostring(t[i])
+        end
+        w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, table.concat(t, '\t'))
+    end
+    local buf, report
+    local suc, err = pcall(function ()
+        local ast
+        ast = parser(common,   'common.j',   ast, messager)
+        ast = parser(blizzard, 'blizzard.j', ast, messager)
+        ast = parser(war3map,  'war3map.j',  ast, messager)
+        buf, report = optimizer(ast, w2l.config, messager)
+    end)
+    if not suc then
+        w2l.messager.report(lang.report.ERROR, 1, lang.report.SYNTAX_ERROR, err:match '[\r\n]+(.+)$')
+        return
+    end
 
     if w2l:file_load('map', 'war3map.j') then
         w2l:file_save('map', 'war3map.j', buf)
@@ -43,9 +64,14 @@ return function (w2l)
         w2l:file_save('map', 'scripts\\war3map.j', buf)
     end
 
-    create_report(w2l, report, 1,   '混淆脚本',        10)
-    create_report(w2l, report, 2,   '引用函数',        5)
-    create_report(w2l, report, 3,   '未引用的全局变量', 20)
-    create_report(w2l, report, 4,   '未引用的函数',     20)
-    create_report(w2l, report, 5,   '未引用的局部变量', 20)
+    local total = count_report(report)
+    if total == 0 then
+        return
+    end
+    w2l.messager.report(lang.report.OPTIMIZE_JASS, 8, 'TOTAL:' .. total)
+    create_report(w2l, report, lang.report.CONFUSE_JASS,         10)
+    create_report(w2l, report, lang.report.REFERENCE_FUNCTION,   5)
+    create_report(w2l, report, lang.report.UNREFERENCE_GLOBAL,   20)
+    create_report(w2l, report, lang.report.UNREFERENCE_FUNCTION, 20)
+    create_report(w2l, report, lang.report.UNREFERENCE_LOCAL,    20)
 end
