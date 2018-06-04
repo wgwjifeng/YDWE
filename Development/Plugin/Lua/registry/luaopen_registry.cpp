@@ -2,11 +2,10 @@
 #include <base/win/registry/key.h> 
 #include <base/util/unicode.h>
 
-
 #define RKEY_TRY() try   
 #define RKEY_TRY_END() catch (const std::exception& e) { lua_pushstring(L, e.what()); return lua_error(L); }
 
-namespace luawarp { namespace registry {
+namespace luareg {
 
 	using namespace base::registry;
 
@@ -146,7 +145,7 @@ namespace luawarp { namespace registry {
 			}
 			}
 		}
-		RKEY_TRY_END();
+		RKEY_TRY_END()
 	}
 
 	int rkey_div(lua_State* L)
@@ -158,35 +157,13 @@ namespace luawarp { namespace registry {
 			key_w        ret = *self / rht;
 			return rkey_copy(L, 1, &ret);
 		}
-		RKEY_TRY_END();
+		RKEY_TRY_END()
 	}
 
 	int rkey_gc(lua_State* L)
 	{
 		static_cast<key_w*>(lua_touserdata(L, 1))->~key_w();
 		return 0;
-	}
-
-	int current_user(lua_State* L)
-	{
-		open_access::t access = open_access::none;
-		if (lua_gettop(L) >= 1)
-		{
-			access = (open_access::t)lua_tointeger(L, 1);
-		}
-		rkey_create(L, HKEY_CURRENT_USER, access);
-		return 1;
-	}
-
-	int local_machine(lua_State* L)
-	{
-		open_access::t access = open_access::none;
-		if (lua_gettop(L) >= 1)
-		{
-			access = (open_access::t)lua_tointeger(L, 1);
-		}
-		rkey_create(L, HKEY_LOCAL_MACHINE, access);
-		return 1;
 	}
 
 	int open(lua_State* L)
@@ -219,25 +196,21 @@ namespace luawarp { namespace registry {
 		lua_pushboolean(L, self->del()? 1: 0);
 		return 1;
 	}
-}}
+}
 
-extern "C" __declspec(dllexport) int luaopen_registry(lua_State* L);
-
+extern "C" __declspec(dllexport)
 int luaopen_registry(lua_State* L)
 {
-	using namespace luawarp;
 	static luaL_Reg func[] = {
-		{ "current_user", registry::current_user },
-		{ "local_machine", registry::local_machine },
-		{ "open", registry::open },
-		{ "del", registry::del },
+		{ "open", luareg::open },
+		{ "del", luareg::del },
 		{ NULL, NULL }
 	};
 	static luaL_Reg rkey_mt[] = {
-		{ "__index", registry::rkey_index },
-		{ "__newindex", registry::rkey_newindex },
-		{ "__div", registry::rkey_div },
-		{ "__gc", registry::rkey_gc },
+		{ "__index", luareg::rkey_index },
+		{ "__newindex", luareg::rkey_newindex },
+		{ "__div", luareg::rkey_div },
+		{ "__gc", luareg::rkey_gc },
 		{ NULL, NULL }
 	};
 	luaL_newlibtable(L, func);
@@ -258,9 +231,7 @@ int luaopen_registry(lua_State* L)
 	LUA_PUSH_CONST(L, KEY_WOW64_64KEY);
 
 #undef LUA_PUSH_CONST
-
-	lua_setglobal(L, "registry");
-	return 0;
+	return 1;
 }
 
 #include <windows.h>

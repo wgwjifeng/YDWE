@@ -46,7 +46,7 @@ namespace locvar
 
 		char buff[260];
 
-		if ((s.mother_id == (0x10000 | (int)CC_GUIID_YDWETimerStartMultiple)) && (s.prev_handle_string != nullptr))
+		if ((s.mother_id & 0x10000) && (s.prev_handle_string != nullptr))
 		{
 			register_var[s.name][var_name] = type_name;
 			BLZSStrPrintf(buff, 260, "YDLocalGet(%s, %s, \"%s\")", s.prev_handle_string, type_name, var_name);
@@ -85,16 +85,17 @@ namespace locvar
 
 		CC_PutBegin();
 
-		if (id == 0) id = s.mother_id;
-		if ((id == (0x10000 | CC_GUIID_YDWETimerStartMultiple))
+		if (id == 0) id = s.mother_id; 
+
+		if ((id & 0xFFFF) == CC_GUIID_YDWEExecuteTriggerMultiple)
+		{
+			BLZSStrPrintf(buff, 260, "call YDLocal5Set(%s, \"%s\", ", type_name, var_name);
+		}
+		else if ((id & 0x10000)
 			|| (id == CC_GUIID_YDWETimerStartMultiple)
 			|| (id == CC_GUIID_YDWERegisterTriggerMultiple))
 		{
 			BLZSStrPrintf(buff, 260, "call YDLocalSet(%s, %s, \"%s\", ", s.handle_string, type_name, var_name);
-		}
-		else if (id == CC_GUIID_YDWEExecuteTriggerMultiple)
-		{
-			BLZSStrPrintf(buff, 260, "call YDLocal5Set(%s, \"%s\", ", type_name, var_name);
 		}
 		else
 		{
@@ -121,7 +122,7 @@ namespace locvar
 
 		CC_PutEnd();
 
-		if (s.mother_id == (0x10000 | CC_GUIID_YDWETimerStartMultiple))
+		if (s.mother_id & 0x10000)
 		{
 			register_var[s.name].erase(var_name);
 		}
@@ -150,7 +151,7 @@ namespace locvar
 
 		char buff[260];
 
-		if ((s.mother_id == (0x10000 | (int)CC_GUIID_YDWETimerStartMultiple)) && (s.prev_handle_string != nullptr))
+		if ((s.mother_id & 0x10000) && (s.prev_handle_string != nullptr))
 		{
 			register_var[s.name][var_name] = type_name;
 			BLZSStrPrintf(buff, 260, "YDLocalArrayGet(%s, %s, \"%s\", ", s.prev_handle_string, type_name, var_name);
@@ -195,15 +196,16 @@ namespace locvar
 		CC_PutBegin();
 
 		if (id == 0) id = s.mother_id;
-		if ((id == (0x10000 | CC_GUIID_YDWETimerStartMultiple))
+
+		if ((id & 0xFFFF) == CC_GUIID_YDWEExecuteTriggerMultiple)
+		{
+			BLZSStrPrintf(buff, 260, "call YDLocal5ArraySet(%s, \"%s\", ", type_name, var_name);
+		}
+		else if ((id & 0x10000)
 			|| (id == CC_GUIID_YDWETimerStartMultiple)
 			|| (id == CC_GUIID_YDWERegisterTriggerMultiple))
 		{
 			BLZSStrPrintf(buff, 260, "call YDLocalArraySet(%s, %s, \"%s\", ", s.handle_string, type_name, var_name);
-		}
-		else if (id == CC_GUIID_YDWEExecuteTriggerMultiple)
-		{
-			BLZSStrPrintf(buff, 260, "call YDLocal5ArraySet(%s, \"%s\", ", type_name, var_name);
 		}
 		else
 		{
@@ -231,11 +233,6 @@ namespace locvar
 		PUT_CONST(")", 1);
 
 		CC_PutEnd();
-
-		if (s.mother_id == (0x10000 | CC_GUIID_YDWETimerStartMultiple))
-		{
-			//register_var[s.name].erase(var_name);
-		}
 	}
 
 	void get_array(DWORD This, DWORD OutClass, char* name, char* type_name)
@@ -345,7 +342,7 @@ namespace locvar
 		std::set<std::string> paramlist;
 
 		{
-			locvar::guard _tmp_guard_((0x10000 | (int)CC_GUIID_YDWETimerStartMultiple), name, handle_string);
+			locvar::guard _tmp_guard_(0x10000 | id, name, handle_string);
 
 			DWORD nItemCount, i;
 			DWORD nItemClass;
@@ -434,7 +431,7 @@ namespace locvar
 
 	bool trigger_data(DWORD This, DWORD OutClass, const char* name)
 	{
-		if (global.mother_id == (0x10000 | (int)CC_GUIID_YDWETimerStartMultiple))
+		if (global.mother_id & 0x10000)
 		{
 			if (global.last_mother_id != CC_GUIID_YDWETimerStartMultiple)
 				return false;

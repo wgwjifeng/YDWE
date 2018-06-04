@@ -61,15 +61,14 @@ static bool map_convert(const fs::path& ydwe, const fs::path& from, const fs::pa
 	process.set_env(L"PATH", (ydwe / L"bin").wstring());
 	if (!process.create(
 		app,
-		base::format(LR"("%s" -e "_W2L_DIR=[[%s]];package.cpath = [[%s]]" gui\mini.lua %s "%s" "%s")", 
+		base::format(LR"("%s" -e "package.cpath = [[%s]]" gui\mini.lua %s "%s" "%s")", 
 			app.wstring(),
-			(ydwedev / L"script" / L"w3x2lni").wstring(),
 			(ydwe / L"bin" / L"modules" / L"?.dll").wstring(),
 			mode,
 			from.wstring(),
 			to.wstring()
 		),
-		ydwedev / L"plugin" / L"w3x2lni"
+		ydwedev / L"plugin" / L"w3x2lni" / L"script"
 	)) {
 		return false;
 	}
@@ -140,7 +139,7 @@ bool launch_warcraft3(base::warcraft3::command_line& cmd)
 			// war3将非.w3g后缀名的文件当地图处理
 			if (!base::path::equal(loadfile.extension(), L".w3g"))
 			{
-				fs::path test_map_path = get_test_map_path() + loadfile.extension().wstring();
+				fs::path test_map_path = get_test_map_path() + L".w3x";
 				try {
 					cmd[L"loadfile"] = test_map_path.wstring();
 					if (!loadfile.is_absolute()) {

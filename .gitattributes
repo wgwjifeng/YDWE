@@ -1,3 +1,5 @@
+OpenSource/* linguist-vendored
+ThirdParty/* linguist-vendored
 *.h   eol=crlf
 *.c   eol=crlf
 *.cpp eol=crlf

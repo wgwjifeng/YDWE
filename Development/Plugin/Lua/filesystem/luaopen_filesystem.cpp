@@ -11,9 +11,9 @@
 #include <base/lua/make_range.h>
 
 #if defined(YDWE_BASE_INLINE)
-#include <base/path/service.cpp>
 #include <base/path/helper.cpp>
-#include <base/path/detail/get_path.cpp>
+#include <base/path/get_path.cpp>
+#include <base/path/ydwe.cpp>
 #include <base/util/unicode.cpp>
 #include <base/exception/exception.cpp>
 #include <base/exception/system_exception.cpp>
@@ -46,11 +46,7 @@ namespace luafs {
 			directory_container(directory_container const& that) : p_(that.p_) { }
 			directory_container(fs::path const& that) : p_(that) { }
 			fs::directory_iterator cbegin() const {
-#if _MSC_VER >= 1910
 				std::error_code ec;
-#else
-				boost::system::error_code ec;
-#endif
 				auto r = fs::directory_iterator(p_, ec);
 				if (!!ec)
 				{
@@ -63,7 +59,6 @@ namespace luafs {
 			fs::directory_iterator end() const   { return fs::directory_iterator(); }
 			fs::directory_iterator end()         { return fs::directory_iterator(); }
 		private:
-		private:
 			const fs::path& p_;
 		};
 
@@ -75,7 +70,7 @@ namespace luafs {
 			return storage;
 		}
 
-		fs::path& to(lua_State* L, int idx)
+		static fs::path& to(lua_State* L, int idx)
 		{
 			return *(fs::path*)luaL_checkudata(L, idx, "filesystem");
 		}
@@ -256,7 +251,6 @@ namespace luafs {
 			fs::perms perms = fs::perms::mask & fs::perms(luaL_checkinteger(L, 2));
 			fs::permissions(self, perms, fs::perm_options::remove);
 			return 0;
-			return 1;
 			FS_TRY_END;
 		}
 
@@ -391,12 +385,8 @@ namespace luafs {
 		FS_TRY;
 		const fs::path& from = path::to(L, 1);
 		const fs::path& to = path::to(L, 2);
-		bool overwritten = !!lua_toboolean(L, 3); 
-#if _MSC_VER >= 1910
+		bool overwritten = !!lua_toboolean(L, 3);
 		fs::copy_file(from, to, overwritten ? fs::copy_options::overwrite_existing : fs::copy_options::none);
-#else
-		fs::copy_file(from, to, overwritten ? fs::copy_option::overwrite_if_exists : fs::copy_option::fail_if_exists);
-#endif
 		return 0;
 		FS_TRY_END;
 	}
@@ -445,30 +435,6 @@ namespace luafs {
 		FS_TRY;
 		return path::constructor_(L, std::move(base::path::ydwe(lua_toboolean(L, 1))));
 		FS_TRY_END;
-	}
-
-	namespace deprecated {
-		static int uncomplete(lua_State* L)
-		{
-			FS_TRY;
-			const fs::path& p = path::to(L, 1);
-			const fs::path& base = path::to(L, 2);
-			return path::constructor_(L, std::move(fs::relative(p, base)));
-			FS_TRY_END;
-		}
-
-		static int canonical(lua_State* L)
-		{
-			FS_TRY;
-			const fs::path& p = path::to(L, 1);
-			if (lua_gettop(L) == 1) {
-				return path::constructor_(L, std::move(fs::canonical(p)));
-			}
-			const fs::path& base = path::to(L, 2);
-			return path::constructor_(L, std::move(fs::canonical(base / p)));
-			FS_TRY_END;
-		}
-
 	}
 }
  
@@ -526,10 +492,6 @@ int luaopen_filesystem(lua_State* L)
 		{ "last_write_time", luafs::last_write_time },
 		{ "get", luafs::get },
 		{ "ydwe", luafs::ydwe },
-
-		// deprecated
-		{ "uncomplete", luafs::deprecated::uncomplete },
-		{ "canonical", luafs::deprecated::canonical },
 		{ NULL, NULL }
 	};	
 	lua_newtable(L);

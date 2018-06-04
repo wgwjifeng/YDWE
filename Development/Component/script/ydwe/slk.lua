@@ -1,12 +1,10 @@
-local w3x2lni = require 'w3x2lni'
+local w3x2lni = require 'w3x2lni.init'
 local root = fs.ydwe_devpath()
 local ydpath = fs.ydwe_path()
 local stormlib  = require 'ffi.stormlib'
-local mpqloader = require 'mpqloader'
 local i18n = require 'i18n'
 local event = require 'ev'
-local slk_lib = require 'slk_lib'
-local defined = require 'defined'
+local slk_lib = require 'w3x2lni.slk_lib'
 local map_handle = __map_handle__.handle
 
 local type_map = {
@@ -30,37 +28,28 @@ local function initialize()
 
     local w2l = w3x2lni()
 
-    local mpq_path = root / 'share' / 'mpq'
-    function w2l:mpq_load(filename)
-        return mpqloader:load(mpq_path, filename)
-    end
-
-    local defined_path = ydpath / 'share' / 'mpq' / 'defined'
-    function w2l:defined_load(filename)
-        return io.load(defined_path / filename)
-    end
-
-    defined(w2l)
-
-    local prebuilt_path = ydpath / 'script' / 'ydwe' / 'prebuilt'
-    function w2l:prebuilt_load(filename)
-        return mpqloader:load(prebuilt_path, filename)
-    end
-    function w2l:prebuilt_save(filename, buf)
-        mpqloader:save(prebuilt_path, filename, buf)
-    end
-
-    function w2l:map_load(filename)
-        return map:load_file(filename)
-    end
-    function w2l:map_save(filename, buf)
-        import_files[filename] = buf
-        log.info('Object save', filename)
-    end
-    function w2l:map_remove(filename)
-        import_files[filename] = ('lll'):pack(2, 0, 0)
-        log.info('Object remove', filename)
-    end
+    w2l.input_ar = {
+        get = function (self, filename)
+            log.info('load_file', filename)
+            return map:load_file(filename)
+        end,
+    }
+    w2l.output_ar = {
+        set = function (self, filename, buf)
+            if not type_map[filename] then
+                return
+            end
+            import_files[filename] = buf
+            log.info('Object save', filename)
+        end,
+        remove = function (self, filename)
+            if not type_map[filename] then
+                return
+            end
+            import_files[filename] = ('lll'):pack(2, 0, 0)
+            log.info('Object remove', filename)
+        end,
+    }
 
     return slk_lib(w2l, false, true)
 end

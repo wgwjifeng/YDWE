@@ -168,12 +168,34 @@ return function(root, io_open, loaded)
 end
 )=";
 static const char slk[] = R"=(
-local sandbox, root, loadlib, io_open = ...
-local w3x2lni = sandbox(root, io_open, {
+local sandbox, slklib, root, loadlib, io_open = ...
+local function load_file(filename)
+	local f = io_open(filename, "r")
+	if f then
+		local buf = f:read "a"
+		f:close()
+		return buf
+	end
+end
+local function data_load(w2l, filename)
+    if filename:sub(1, 5) == 'data/' then
+		if filename:sub(1, 8) == 'data/ui/' and w2l.setting.data_ui == '${YDWE}' then
+			error('error in ${YDWE}')
+		end
+		return load_file(('%s/data/%s/%s'):format(root, w2l.setting.data, filename:sub(6)))
+    end
+    return load_file(('%s/%s'):format(root, filename))
+end
+
+(loadlib 'filesystem')()
+
+local w3x2lni = sandbox(('%s/script/core/'):format(root), io_open, {
     ['w3xparser'] = (loadlib 'w3xparser')(),
     ['lni']       = (loadlib 'lni')(),
     ['lml']       = (loadlib 'lml')(),
     ['lpeg']      = (loadlib 'lpeg')(),
+    ['data_load'] = data_load,
+    ['fs']        = fs,
 })
 local function load_mpq(filename)
 	local f = io.open(filename, "r")
@@ -184,13 +206,11 @@ local function load_mpq(filename)
 	end
 end
 local w2l = w3x2lni()
-function w2l:mpq_load(filename)
+w2l.input_ar = {}
+function w2l.input_ar:get(filename)
 	return load_mpq(filename)
 end
-function w2l:map_load(filename)
-	return load_mpq(filename)
-end
-return w2l:slk_lib(true, false)
+return slklib(w2l, true, false)
 )=";
 
 static int loadlib(lua_State* L)
@@ -241,17 +261,24 @@ static int io_open(lua_State *L) {
 #define DoString(L, s, n) \
 	(luaL_loadbuffer(L, s, sizeof(s) - 1, "module '" #s "'") || (lua_insert(L, -(n)-1), lua_pcall(L, n, LUA_MULTRET, 0)))
 
+#define DoFile(L, f, n) \
+	(luaL_loadfile(L, f) || (lua_insert(L, -(n)-1), lua_pcall(L, n, LUA_MULTRET, 0)))
+
 int open(lua_State* L)
 {
 	if (DoString(L, sandbox, 0)) {
 		printf("%s\n", lua_tostring(L, -1));
 		return 0;
 	}
-	fs::path root = base::path::ydwe(true) / "plugin" / "w3x2lni" / "core";
-	lua_pushstring(L, (root.string() + "\\").c_str());
+	if (DoFile(L, (base::path::ydwe(true) / "script" / "ydwe" / "slk_lib.lua").string().c_str(), 0)) {
+		printf("%s\n", lua_tostring(L, -1));
+		return 0;
+	}
+	fs::path root = base::path::ydwe(true) / "plugin" / "w3x2lni";
+	lua_pushstring(L, root.string().c_str());
 	lua_pushcfunction(L, loadlib);
 	lua_pushcfunction(L, io_open);
-	if (DoString(L, slk, 4)) {
+	if (DoString(L, slk, 5)) {
 		printf("%s\n", lua_tostring(L, -1));
 		return 0;
 	}

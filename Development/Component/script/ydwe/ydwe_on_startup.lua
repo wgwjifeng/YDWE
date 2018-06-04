@@ -1,14 +1,16 @@
-require "compile.inject_code"
-require "compile.native"
-local uiloader  = require "uiloader"
-local mpqloader = require 'mpqloader'
-local stormlib  = require 'ffi.stormlib'
+local compiler = require "compile.compiler"
+require "w3x2lni.check_object"
+require 'w3x2lni.open_map'
+local uiloader = require "uiloader"
+local stormlib = require 'ffi.stormlib'
+
 
 -- 版本信息
 ydwe_version = sys.version {}
 war3_version = sys.war3_version {}
 
 local function initialize_reg()
+    local registry = require "registry"
 	local reg = registry.open [[HKEY_CURRENT_USER\Software\Blizzard Entertainment\WorldEdit]]
 	-- 不弹用户协议
 	reg["Has Been Run"] = { registry.REG_DWORD, 1 }
@@ -176,16 +178,22 @@ local function initialize_font()
 	end
 end
 
+-- 从主程序的mpq目录下载入MPQ
+-- mpqname - MPQ的文件名
+-- 返回值：MPQ句柄
+local function load_virtual_mpq(mpqname, priority)
+	local mpq = fs.ydwe_path() / "share" / mpqname
+	if fs.exists(mpq) then
+		virtual_mpq.open_path(mpq, priority)
+	end
+end
+
 -- 本函数在编辑器启动时调用，可以在本函数中载入一些插件
 -- event_data - 事件参数
 -- 	暂无内容
 -- 返回值：返回非负数表示成功，负数表示失败
 function event.EVENT_WE_START(event_data)
 	log.debug("********************* on startup start *********************")
-	
-    if fs.ydwe_path() ~= fs.ydwe_devpath() then
-        require 'debugger'
-    end
 
 	-- 读取版本
 	ydwe_version = sys.version { file = fs.ydwe_path() / "ydwe.exe" }
@@ -193,6 +201,10 @@ function event.EVENT_WE_START(event_data)
 
 	log.debug("ydwe version " .. tostring(ydwe_version))
 	log.debug("war3 version " .. tostring(war3_version))
+
+	local gitlog = require 'gitlog'
+	log.debug("commit: " .. gitlog.commit)
+	log.debug("data: " .. gitlog.date)
 	
 	-- 刷新配置数据	
 	global_config_reload()
@@ -208,19 +220,18 @@ function event.EVENT_WE_START(event_data)
 	check_war3_version()	
 
 	-- 载入Patch MPQ
-	mpq_util:load_mpq("mpq", 14)
-    mpq_util:load_mpq("mpq/war3", 14)
-    mpq_util:load_mpq("mpq/" .. (require "i18n").get_language(), 14)
+	load_virtual_mpq("mpq", 14)
+    load_virtual_mpq("mpq/war3", 14)
+    load_virtual_mpq("mpq/" .. (require "i18n").get_language(), 14)
 
 	-- 加载插件
 	plugin:load_all()
-
+	
 	-- 初始化UI加载器
 	uiloader()
-	
-	-- 载入注入代码配置
-	inject_code:initialize()
-	native:initialize()
+
+	-- 初始化编译器
+	compiler:initialize()
 		
 	initialize_reg()
 	initialize_font()

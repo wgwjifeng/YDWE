@@ -91,7 +91,6 @@ namespace
 		("EnableMapSlk",                            Attribute("MapTest"))
 		("EnableDotNetSupport",                     Attribute("ThirdPartyPlugin"))
 		("EnableTesh",                              Attribute("ThirdPartyPlugin"))
-		("EnableYDTrigger",                         Attribute("ThirdPartyPlugin"))
 		("EnableManualNewId",                       Attribute("FeatureToggle"))
 		("FontEnable",                              Attribute("Font"))
 		("FontName",                                Attribute("Font", Attribute::e_ComboBox))
@@ -207,7 +206,6 @@ void CMainWindow::ResetConfig(base::ini::table& table)
 	table["HostTest"]["Option"] = "0";
 	table["ThirdPartyPlugin"]["EnableDotNetSupport"] = "0";
 	table["ThirdPartyPlugin"]["EnableTesh"] = "1";
-	table["ThirdPartyPlugin"]["EnableYDTrigger"] = "1";
 	table["FeatureToggle"]["EnableManualNewId"] = "0";
 	table["Font"]["FontEnable"] = "0";
 	table["Font"]["FontName"] = "";
@@ -332,7 +330,6 @@ void CMainWindow::EnableMapSave(bool bEnable)
 	ContrlSetEnabled("MapSave_0", bEnable);
 	ContrlSetEnabled("MapSave_1", bEnable);
 	ContrlSetEnabled("MapSave_2", bEnable);
-	ContrlSetEnabled("MapSave_3", bEnable);
 	if (!bEnable) ContrlSelected("MapSave_0", true);
 }
 
@@ -352,8 +349,6 @@ void CMainWindow::EnableHostTest(bool bEnable)
 
 void CMainWindow::DisableCJass(bool bEnable)
 {
-	ContrlSetEnabled("EnableYDTrigger", bEnable);
-
 	EnableMapSave(bEnable);
 	EnableScriptInjection(bEnable);
 }

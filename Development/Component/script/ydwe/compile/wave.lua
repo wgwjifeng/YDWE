@@ -3,11 +3,11 @@ local process = require "process"
 
 local root = fs.ydwe_devpath()
 
-wave = {}
+local wave = {}
 wave.path                = fs.ydwe_path() / "plugin" / "wave"
 wave.exe_path            = wave.path / "Wave.exe"
 wave.sys_include_path    = wave.path / "include"
-wave.plugin_include_path = fs.ydwe_path() / "plugin"
+wave.plugin_include_path = fs.ydwe_devpath() / "plugin"
 wave.force_file_path     = wave.sys_include_path / "WaveForce.i"
 
 local function pathstring(path)
@@ -24,7 +24,6 @@ end
 -- op.option - 预处理选项，table，支持的值有
 -- 	runtime_version - 表示魔兽版本
 -- 	enable_jasshelper_debug - 布尔值，是否是调试模式
---	enable_yd_trigger - 布尔值，是否启用YD触发器
 -- 返回：number, info, path - 子进程返回值；预处理输出信息；输出文件路径
 function wave:do_compile(op)
 	local cmd = ''
@@ -37,16 +36,13 @@ function wave:do_compile(op)
             cmd = cmd .. string.format('--include=%s ',    pathstring(path / 'jass'))
         end
     end
-	cmd = cmd .. string.format('--define=WARCRAFT_VERSION=%d ', 100 * op.option.runtime_version.major + op.option.runtime_version.minor)
+	cmd = cmd .. string.format('--define=WARCRAFT_VERSION=%d ', 100 + op.option.runtime_version)
 	cmd = cmd .. string.format('--define=YDWE_VERSION_STRING=\\"%s\\" ', tostring(ydwe_version))
 	if op.option.enable_jasshelper_debug then
 		cmd = cmd .. '--define=DEBUG=1 '
 	end
 	if tonumber(global_config["ScriptInjection"]["Option"]) == 0 then
 		cmd = cmd .. "--define=SCRIPT_INJECTION=1 "
-	end
-	if not op.option.enable_yd_trigger then
-		cmd = cmd .. '--define=DISABLE_YDTRIGGER=1 '
 	end
 	if fs.exists(self.force_file_path) then
 		cmd = cmd .. string.format('--forceinclude=%s ', self.force_file_path:filename():string())
@@ -93,3 +89,5 @@ function wave:compile(op)
 
 	return true
 end
+
+return wave

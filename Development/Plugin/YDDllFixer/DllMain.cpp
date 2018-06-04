@@ -1,95 +1,96 @@
-#include <deque>
-#include <filesystem>
-#include <utility>
 #include <windows.h>
 #include <Shlwapi.h>
-#include <base/filesystem.h>
 
-static fs::path GetModuleDirectory(HMODULE hModule)
-{
-	fs::path result(L".");
-	wchar_t buffer[MAX_PATH];
-
-	if (::GetModuleFileNameW(hModule, buffer, sizeof(buffer) / sizeof(buffer[0])))
-	{
-		result = buffer;
-		result = result.parent_path(); // 获取上级路径
-	}
-
-	return std::move(result);
-}
-
-const wchar_t* szDllList[] = {
-#if !_DEBUG
-	L"vcruntime140.dll",
-	L"msvcp140.dll",
-#endif
-	L"zlib1.dll",
-	L"StormLib.dll",
-	L"luacore.dll",	
-	L"ydbase.dll",
-	L"LuaEngine.dll", // always at last
+struct strview {
+	const wchar_t* buf;
+	size_t len;
+	strview(const wchar_t* str)
+		: buf(str)
+		, len(wcslen(str))
+	{ }
+	strview(const wchar_t* str, size_t len)
+		: buf(str)
+		, len(len)
+	{ }
 };
 
-std::deque<HMODULE> hDllArray;
-
-void PreloadDll(const fs::path &ydweDirectory)
-{
-	if (!ydweDirectory.empty())
-	{
-		fs::path binPath = ydweDirectory.parent_path() / L"bin";
-
-		wchar_t buffer[MAX_PATH];
-		::GetCurrentDirectoryW(sizeof(buffer) / sizeof(buffer[0]), buffer);
-		::SetCurrentDirectoryW(binPath.wstring().c_str());
-		 
-		for (const wchar_t *szDllName: szDllList)
-		{
-			hDllArray.push_front(::LoadLibraryW((binPath / szDllName).wstring().c_str()));
+template <size_t N>
+struct strbuilder {
+	wchar_t buf[N];
+	size_t  len = 0;
+	void append(const wchar_t* str, size_t n) {
+		if (len + n >= sizeof buf / sizeof buf[0]) {
+			return;
 		}
-
-		::SetCurrentDirectoryW(buffer);
+		wcsncpy(buf + len, str, n);
+		len += n;
 	}
+	void operator +=(const strview& str) {
+		append(str.buf, str.len);
+	}
+	wchar_t* string() {
+		buf[len] = L'\0';
+		return buf;
+	}
+};
+
+struct path : public strbuilder<MAX_PATH> {
+	path(HMODULE m) {
+		::GetModuleFileNameW(m, buf, sizeof buf / sizeof buf[0]);
+		::PathRemoveBlanksW(buf);
+		::PathUnquoteSpacesW(buf);
+		::PathRemoveBackslashW(buf);
+		::PathRemoveFileSpecW(buf);
+		len = wcslen(buf);
+	}
+};
+
+path operator /(path& self, const wchar_t* str) {
+	path res = self;
+	res += L"\\";
+	res += str;
+	return res;
+}
+
+struct Dll{
+	const wchar_t* name;
+	HMODULE handle;
+};
+
+Dll hDllArray[] = {
+#if !_DEBUG
+	{ L"vcruntime140.dll",NULL },
+	{ L"msvcp140.dll",NULL },
+#endif
+	{ L"StormLib.dll",NULL },
+	{ L"lua53.dll",NULL },
+	{ L"ydbase.dll",NULL },
+	{ L"LuaEngine.dll",NULL },
+};
+
+void PreloadDll(HMODULE module)
+{
+	path binPath = path(module);
+	wchar_t buffer[MAX_PATH];
+	::GetCurrentDirectoryW(sizeof(buffer) / sizeof(buffer[0]), buffer);
+	::SetCurrentDirectoryW(binPath.string());
+	for (int i = 0; i < _countof(hDllArray); ++i)
+	{
+		auto dll = hDllArray[i];
+		dll.handle = ::LoadLibraryW((binPath / dll.name).string());
+	}
+	::SetCurrentDirectoryW(buffer);
 }
 
 void PostfreeDll()
 {
-	for (HMODULE hDll : hDllArray)
+	for (int i = _countof(hDllArray); i > 0; --i)
 	{
-		if (hDll)
-			::FreeLibrary(hDll);
-	}
-}
-
-static void RestoreDetouredSystemDll(const fs::path &war3Directory)
-{
-	fs::path backupPath = war3Directory / L"ydwe_backups_system_dll";
-
-	try
-	{
-		fs::directory_iterator endItr;
-		for (fs::directory_iterator itr(backupPath); itr != endItr; ++itr)
-		{
-			try
-			{
-				if (!fs::is_directory(itr->path()))
-				{
-					fs::rename(itr->path(), war3Directory / itr->path().filename());
-				}
-			}
-			catch(...)
-			{}
+		auto dll = hDllArray[i - 1];
+		if (dll.handle) {
+			::FreeLibrary(dll.handle);
 		}
 	}
-	catch(...)
-	{}
-
-	try
-	{
-		fs::remove(backupPath);
-	}
-	catch (...)
-	{}
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID pReserved)
@@ -97,12 +98,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID pReserved)
 	if (reason == DLL_PROCESS_ATTACH)
 	{
 		::DisableThreadLibraryCalls(module);
-
-		fs::path war3Directory = GetModuleDirectory(NULL);
-		fs::path ydweDirectory = GetModuleDirectory(module);
-
-		PreloadDll(ydweDirectory);
-		RestoreDetouredSystemDll(war3Directory);
+		PreloadDll(module);
 	}
 	else if (reason == DLL_PROCESS_DETACH)
 	{

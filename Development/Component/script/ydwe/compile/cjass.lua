@@ -1,6 +1,6 @@
 require "filesystem"
 
-cjass = {}
+local cjass = {}
 
 cjass.path     = fs.ydwe_path() / "plugin" / "AdicHelper"
 cjass.exe_path = cjass.path / "AdicHelper.exe"
@@ -12,7 +12,7 @@ cjass.exe_path = cjass.path / "AdicHelper.exe"
 --	runtime_version - 魔兽版本
 -- 返回：true编译成功，false编译失败
 function cjass.do_compile(self, map_path, option)
-	local parameter = option.runtime_version:is_new() and " /v24" or " /v23"
+	local parameter = option.runtime_version == 24 and " /v24" or " /v23"
 					.. (option.enable_jasshelper_debug and " /dbg" or "")
 
 	local command_line = string.format('"%s"%s /mappars="%s"',
@@ -36,3 +36,5 @@ function cjass.compile(self, map_path, option)
 
 	return result
 end
+
+return cjass

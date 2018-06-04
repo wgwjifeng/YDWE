@@ -1,8 +1,3 @@
---------------------------------------------------------------------------
--- YD编辑器的主配置和代码文件
--- 本文件编码为UTF-8，在处理字符串时要注意使用iconv库转换
---------------------------------------------------------------------------
-
 require "log"
 
 log.debug("********************* ydwe initialize start *********************")
@@ -21,12 +16,10 @@ require "utiliy"
 require "filesystem"
 require "event"
 require "virtual_mpq"
-require "registry"
 require "version"
 require "localization"
 require "config"
 require "plugin"
-require "check_object"
 require "ffi.loadlibrary"
 require "ffi.gui"
 
