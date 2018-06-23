@@ -10,13 +10,14 @@ void _fastcall CC_PutAction(DWORD This, DWORD OutClass, const char* name, DWORD 
 void _fastcall CC_PutConditionEx(DWORD This, DWORD OutClass, char* name);
 void _fastcall CC_PutCondition(DWORD This, DWORD OutClass, char* name, DWORD index);
 int  _fastcall CC_CountBlock(DWORD This, DWORD index);
+void _fastcall CC_PutExternFuncEx(DWORD This, DWORD OutClass, char* name);
 void _fastcall CC_PutVar_Code(DWORD This, DWORD OutClass, char* name, DWORD index, DWORD Type);
-void _fastcall CC_PutExternFunc(DWORD This, DWORD OutClass, char* name, DWORD index);
 void _fastcall CC_PutBlock_Action(DWORD This, DWORD OutClass, char* name, LONG index);
 void _fastcall CC_PutBlock_Event(DWORD This, DWORD OutClass, char* name, DWORD index, const char* triggername);
 void _fastcall CC_PutBlock_Condition_And(DWORD This, DWORD OutClass, char* name, DWORD index);
 void _fastcall CC_PutBlock_Condition_Or(DWORD This, DWORD OutClass, char* name, DWORD index);
 void _fastcall CC_PutTrigger_Condition_And(DWORD This, DWORD OutClass, char* name);
+int  _fastcall CC_PutVar(DWORD This, DWORD EDX, DWORD OutClass, char* name, DWORD Index, DWORD Type, DWORD Endl);
 
 void _fastcall GetTriggerName_Trig(DWORD This, char* buff, int len);
 

@@ -26,9 +26,7 @@ local tbl_index = {
 	ScriptCompiler = {
 		EnableJassHelper = "1",
 		EnableJassHelperDebug = "0",
-		EnableJassHelperScriptOnly = "0",
 		EnableJassHelperOptimization = "1",
-		EnableCJass = "0",
 	},
 	PJass = {
 		Option = "0"

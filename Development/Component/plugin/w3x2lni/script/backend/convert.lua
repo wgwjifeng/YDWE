@@ -6,7 +6,7 @@ local get_report = require 'share.report'
 local check_lni_mark = require 'share.check_lni_mark'
 local unpack_setting = require 'backend.unpack_setting'
 local w2l = core()
-local root = fs.current_path()
+local root = require 'backend.w2l_path'
 local setting
 local input_ar
 local output_ar
@@ -65,22 +65,21 @@ local function get_io_time(map, file_count)
 end
 
 return function (mode)
-    w2l.log_path = root:parent_path() / 'log'
+    w2l.log_path = root / 'log'
     w2l:set_messager(messager)
+    if mode == 'slk' then
+        w2l.messager.title 'Slk'
+    elseif mode == 'obj' then
+        w2l.messager.title 'Obj'
+    elseif mode == 'lni' then
+        w2l.messager.title 'Lni'
+    end
     w2l.messager.text(lang.script.INIT)
     w2l.messager.progress(0)
 
     fs.remove(w2l.log_path / 'report.log')
 
     setting = unpack_setting(w2l, mode)
-
-    if setting.mode == 'slk' then
-        messager.title 'Slk'
-    elseif setting.mode == 'obj' then
-        messager.title 'Obj'
-    elseif setting.mode == 'lni' then
-        messager.title 'Lni'
-    end
 
     messager.text(lang.script.OPEN_MAP)
     local err
@@ -116,6 +115,11 @@ return function (mode)
     end
     w2l.output_ar = output_ar
 
+    local plugin_loader = require 'backend.plugin'
+    plugin_loader(w2l, function (source, plugin)
+        w2l:add_plugin(source, plugin)
+    end)
+
     messager.text(lang.script.CHECK_PLUGIN)
     w2l:call_plugin 'on_convert'
 
@@ -143,7 +147,7 @@ return function (mode)
 
     messager.text(lang.script.SAVE_FILE)
     w2l.progress:start(1)
-    builder.save(w2l, slk.w3i, input_ar, output_ar)
+    builder.save(w2l, slk.w3i, slk.w3f, input_ar, output_ar)
     w2l.progress:finish()
     
     local clock = os.clock()

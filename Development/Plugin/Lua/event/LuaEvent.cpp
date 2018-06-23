@@ -67,57 +67,108 @@ namespace NYDWE {
 		return result;
 	}
 
-	volatile bool gIsInCompileProcess = false;
-	uintptr_t pgTrueCreateFileA;
-	HANDLE WINAPI DetourStormCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
-	{
-		std::wstring fileName = base::a2w(std::string_view(lpFileName), base::conv_method::replace | '?');
-		std::wstring_view fileExt(fileName.data() + fileName.size() - 4, 4);
-		if (gIsInCompileProcess && (fileExt == L".w3x" || fileExt == L".w3m"))
-		{
-			gIsInCompileProcess = false;
-			event_array[EVENT_SAVE_MAP]([&](lua_State* L, int idx){
-				lua_pushstring(L, "map_path");
-				lua_pushwstring(L, fileName);
-				lua_settable(L, idx);
-			});
+	static size_t findBuildDir(const std::string& filename) {
+		size_t pos = filename.rfind(".w3xTemp");
+		if (pos == -1) {
+			pos = filename.rfind(".w3mTemp");
+			if (pos == -1) {
+				pos = filename.rfind(".w3nTemp");
+				if (pos == -1) {
+					return pos;
+				}
+			}
 		}
-
-		return base::std_call<HANDLE>(pgTrueCreateFileA, lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+		return pos;
 	}
 
-	HANDLE WINAPI DetourWeCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+	uintptr_t pgTrueFopen;
+	FILE* __cdecl DetourWeFopen(const char* filename, const char* mode)
 	{
-		std::string fileName(lpFileName);
-		std::string_view fileExt(fileName.data() + fileName.size() - 4, 4);
-		if (std::string_view(fileName.data() + fileName.size() - 14, 14) == "war3mapMap.blp")
-		{
-			if (dwCreationDisposition == OPEN_EXISTING)
-			{
-				LOGGING_TRACE(lg) << "WE is about to compile maps.";
-				gIsInCompileProcess = true;
-			}
-			else
-			{
-				gIsInCompileProcess = false;
-			}
+		std::string sFilename(filename);
+		size_t pos = findBuildDir(sFilename);
+		if (pos == -1) {
+			return base::c_call<FILE*>(pgTrueFopen, filename, mode);
 		}
-		else if (gIsInCompileProcess && (fileExt == ".w3x" || fileExt == ".w3m"))
-		{
-			try {
-				fs::path p(fileName);
+		sFilename = sFilename.substr(0, pos) + base::u2a(sFilename.substr(pos));
+		return base::c_call<FILE*>(pgTrueFopen, sFilename.c_str(), mode);
+	} 
 
-				event_array[EVENT_SAVE_MAP]([&](lua_State* L, int idx){
-					lua_pushstring(L, "map_path");
-					lua_pushwstring(L, p.wstring());
-					lua_settable(L, idx);
-				});
-			}
-			catch (...) {				
-			}
+	uintptr_t pgTrueGetFileAttributesA;
+	DWORD WINAPI DetourWeGetFileAttributesA(LPCSTR lpPathName)
+	{
+		std::string sFilename(lpPathName);
+		size_t pos = findBuildDir(sFilename);
+		if (pos == -1) {
+			return base::std_call<DWORD>(pgTrueGetFileAttributesA, lpPathName);
 		}
+		sFilename = sFilename.substr(0, pos) + base::u2a(sFilename.substr(pos));
+		return base::std_call<DWORD>(pgTrueGetFileAttributesA, sFilename.c_str());
+	}
 
-		return base::std_call<HANDLE>(pgTrueCreateFileA, lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+	uintptr_t pgTrueCreateDirectoryA;
+	BOOL WINAPI DetourWeCreateDirectoryA(LPCSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes)
+	{
+		std::string sFilename(lpPathName);
+		size_t pos = findBuildDir(sFilename);
+		if (pos == -1) {
+			return base::std_call<BOOL>(pgTrueCreateDirectoryA, lpPathName, lpSecurityAttributes);
+		}
+		sFilename = sFilename.substr(0, pos) + base::u2a(sFilename.substr(pos));
+		BOOL ok = base::std_call<BOOL>(pgTrueCreateDirectoryA, sFilename.c_str(), lpSecurityAttributes);
+		return ok;
+	}
+
+	static bool testMap = false;
+	static bool saveMap = false;
+	bool isWeTestMapHookInstalled;
+	uintptr_t pgTrueWeTestMap;
+	static int __fastcall DetourWeTestMap(int This)
+	{
+		testMap = true;
+		saveMap = false;
+		int res = base::fast_call<int>(pgTrueWeTestMap, This);
+		testMap = false;
+		saveMap = false;
+		return res;
+	}
+
+	bool isWeRebuildMapHookInstalled;
+	uintptr_t pgTrueWeRebuildMap;
+	static int __fastcall DetourWeRebuildMap(int This)
+	{
+		//int ok = base::fast_call<int>(pgTrueWeRebuildMap, This);
+		int unk = *(int*)(This + 12);
+		if (unk + 4 < 64) {
+			unk = 64;
+		}
+		else {
+			unk = unk + 4;
+		}
+		int buffer = 0;
+		int count = 0;
+		int subclass = *(int*)(This + 24);
+		const char* mappath = *(const char**)This;
+		if (subclass)
+		{
+			base::fast_call<void>(*(int*)(*(int*)subclass + 32), subclass);
+			base::fast_call<void>(*(int*)(*(int*)subclass + 36), subclass, 0, &buffer, &count, 0);
+		}
+		int map = base::std_call<int>(0x00402B00, mappath, 0x88u, unk, 1, count);
+		if (!map) {
+			return 0;
+		}
+		base::std_call<void>(0x004063A0, map, 1, NULL);
+		saveMap = true;
+		int results = event_array[EVENT_NEW_SAVE_MAP]([&](lua_State* L, int idx) {
+			lua_pushstring(L, "map_path");
+			lua_pushwstring(L, base::a2w(mappath));
+			lua_rawset(L, idx);
+
+			lua_pushstring(L, "test");
+			lua_pushboolean(L, testMap);
+			lua_rawset(L, idx);
+		});
+		return results >= 0 ? 1 : 0;
 	}
 
 	/// Regex for extracting file path
@@ -132,45 +183,27 @@ namespace NYDWE {
 			fs::path currentWarcraftMap = base::path::get(base::path::DIR_EXE).parent_path() / matcher.str(1);
 			LOGGING_TRACE(lg) << "Executing map " << currentWarcraftMap.wstring();
 
-			if (gIsInCompileProcess)
-			{
-				LOGGING_TRACE(lg) << "Need to compile...";
-
-				int results = event_array[EVENT_SAVE_MAP]([&](lua_State* L, int idx){
-					lua_pushstring(L, "map_path");
-					lua_pushwstring(L, currentWarcraftMap.wstring());
-					lua_settable(L, idx);
-				});
-
-				gIsInCompileProcess = false;
-				if (results < 0)
-				{
-					LOGGING_TRACE(lg) << "Save failed. Abort testing.";
-					memset(lpProcessInformation, 0, sizeof(PROCESS_INFORMATION));
-					return FALSE;
-				}
-			}
-			else
-			{
-				LOGGING_TRACE(lg) << "No need to compile.";
-			}
-
 			int results = event_array[EVENT_TEST_MAP]([&](lua_State* L, int idx){
 				lua_pushstring(L, "map_path");
 				lua_pushwstring(L, currentWarcraftMap.wstring());
-				lua_settable(L, idx);
+				lua_rawset(L, idx);
+
+				lua_pushstring(L, "save");
+				lua_pushboolean(L, saveMap);
+				lua_rawset(L, idx);
 
 				if (lpApplicationName) {
 					lua_pushstring(L, "application_name");
 					lua_pushastring(L, lpApplicationName);
-					lua_settable(L, idx);
+					lua_rawset(L, idx);
 				}
 
 				if (lpCommandLine) {
 					lua_pushstring(L, "command_line");
 					lua_pushastring(L, lpCommandLine);
-					lua_settable(L, idx);
+					lua_rawset(L, idx);
 				}
+				
 			});
 			return results >= 0;
 		}
@@ -403,13 +436,20 @@ namespace NYDWE {
 
 	void SetupEvent()
 	{
-		pgTrueCreateFileA     = base::hook::iat(L"storm.dll",             "kernel32.dll", "CreateFileA",     (uintptr_t)DetourStormCreateFileA);
-		pgTrueCreateFileA     = base::hook::iat(::GetModuleHandleW(NULL), "kernel32.dll", "CreateFileA",     (uintptr_t)DetourWeCreateFileA);
+		pgTrueFopen           = base::hook::iat(::GetModuleHandleW(NULL), "msvcrt.dll",   "fopen",           (uintptr_t)DetourWeFopen);
+		pgTrueGetFileAttributesA = base::hook::iat(::GetModuleHandleW(NULL), "kernel32.dll", "GetFileAttributesA", (uintptr_t)DetourWeGetFileAttributesA);
+		pgTrueCreateDirectoryA = base::hook::iat(::GetModuleHandleW(NULL), "kernel32.dll", "CreateDirectoryA", (uintptr_t)DetourWeCreateDirectoryA);
 		pgTrueCreateProcessA  = base::hook::iat(::GetModuleHandleW(NULL), "kernel32.dll", "CreateProcessA",  (uintptr_t)DetourWeCreateProcessA);
 		pgTrueCreateWindowExA = base::hook::iat(::GetModuleHandleW(NULL), "user32.dll",   "CreateWindowExA", (uintptr_t)DetourWeCreateWindowExA);
 		pgTrueSetMenu         = base::hook::iat(::GetModuleHandleW(NULL), "user32.dll",   "SetMenu",         (uintptr_t)DetourWeSetMenu);
 		pgTrueCreateDialogIndirectParamA = base::hook::iat(::GetModuleHandleW(NULL), "user32.dll",   "CreateDialogIndirectParamA",  (uintptr_t)DetourWeCreateDialogIndirectParamA);
 
+		pgTrueWeTestMap = (uintptr_t)0x004EB9B0;
+		INSTALL_INLINE_HOOK(WeTestMap);
+
+		pgTrueWeRebuildMap = (uintptr_t)0x00402540;
+		INSTALL_INLINE_HOOK(WeRebuildMap);
+		
 		pgTrueWeWinMain     = (uintptr_t)0x004021A0;
 		INSTALL_INLINE_HOOK(WeWinMain);
 

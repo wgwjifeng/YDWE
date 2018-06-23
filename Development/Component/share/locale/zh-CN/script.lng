@@ -7,9 +7,9 @@
 [USE_DEFAULT]
 使用默认
 [PREPEOCESSOR_FAILED]
-预处理出现错误，信息:
-stdout: %s
-stderr: %s
+预处理错误:
+
+%s
 [PREPEOCESSOR_LAUNCH_FAILED]
 无法启动预处理器
 [EXPORT_FILE]
@@ -42,7 +42,11 @@ YDWE(&Y)
 地图 "%s" 带有只读属性，是否去掉地图中的只读属性?
 [DELETE_DANGER_DIR]
 YDWE检测到魔兽的安装路径下存在一个名为"%s"的文件夹。它可能影响YDWE运行，是否删除?
+[UNSUPPORTED_WAR3_VERSION]
+不支持魔兽%d.%d。
 [ERROR_WAR3_VERSION]
 检测到您的魔兽Game.dll和War3Patch.mpq的版本不一致，这可能是由版本转换器造成的，这会导致您无法保存和测试地图，强烈建议您使用正确的魔兽补丁还原您的魔兽。
 [PARSE_UNKNOWN_UI]
 检测到地图使用了未知的UI，YDWE可以尝试帮你识别未知的UI，是否继续？(会重启YDWE)
+[UNSUPORTED_SAVE_TYPE]
+不支持保存为%s。

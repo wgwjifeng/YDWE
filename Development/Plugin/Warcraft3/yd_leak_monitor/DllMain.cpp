@@ -1,6 +1,6 @@
-#include <windows.h>
+﻿#include <windows.h>
 #include <base/hook/fp_call.h>
-#include <base/path/self.h>
+#include <base/path/ydwe.h>
 #include <base/warcraft3/hashtable.h>
 #include <base/warcraft3/jass.h>
 #include <base/warcraft3/jass/global_variable.h>
@@ -11,6 +11,8 @@
 #include <base/util/unicode.h>
 #include <map>
 #include <fstream>
+
+#pragma execution_character_set("utf-8")
 
 namespace commonj
 {
@@ -178,6 +180,7 @@ struct handle_info_t
 	uint32_t object;
 	uint32_t reference;
 	uint32_t pos;
+	const char* type;
 	std::vector<std::string> gv_reference;
 
 	handle_info_t()
@@ -185,6 +188,7 @@ struct handle_info_t
 		, object(0)
 		, reference(0)
 		, pos(0)
+		, type(0)
 		, gv_reference()
 	{ }
 };
@@ -213,13 +217,14 @@ public:
 		it->second.gv_reference.push_back(name);
 	}
 
-	void update_pos(std::map<uintptr_t, uintptr_t> m)
+	void update_pos(const char* type, std::map<uintptr_t, uintptr_t> m)
 	{
 		for (auto it = m.begin(); it != m.end(); ++it)
 		{
 			auto h = find(it->first);
 			if (h != end()) 
 			{
+				h->second.type = type;
 				h->second.pos = it->second;
 			}
 		}
@@ -256,29 +261,40 @@ void create_report(std::fstream& fs)
 		}
 	}
 
-	ht.update_pos(monitor::handle_manager<commonj::location>::instance());
-	ht.update_pos(monitor::handle_manager<commonj::effect>::instance());
-	ht.update_pos(monitor::handle_manager<commonj::group>::instance());
-	ht.update_pos(monitor::handle_manager<commonj::region>::instance());
-	ht.update_pos(monitor::handle_manager<commonj::rect>::instance());
-	ht.update_pos(monitor::handle_manager<commonj::force>::instance());
-
+	ht.update_pos(commonj::location, monitor::handle_manager<commonj::location>::instance());
+	ht.update_pos(commonj::effect,   monitor::handle_manager<commonj::effect>::instance());
+	ht.update_pos(commonj::group,    monitor::handle_manager<commonj::group>::instance());
+	ht.update_pos(commonj::region,   monitor::handle_manager<commonj::region>::instance());
+	ht.update_pos(commonj::rect,     monitor::handle_manager<commonj::rect>::instance());
+	ht.update_pos(commonj::force,    monitor::handle_manager<commonj::force>::instance());
 
 	fs << "---------------------------------------" << std::endl;
-	fs << "           YDWE Leak Monitor           " << std::endl;
+	fs << "            泄漏检测详细报告           " << std::endl;
 	fs << "---------------------------------------" << std::endl;
-	fs << "Total:" << ht.size() << std::endl;
+	fs << "点（location）: "       << monitor::handle_manager<commonj::location>::instance().size() << std::endl;
+	fs << "特效（effect）: "       << monitor::handle_manager<commonj::effect>::instance().size() << std::endl;
+	fs << "单位组（group）: "      << monitor::handle_manager<commonj::group>::instance().size() << std::endl;
+	fs << "不规则区域（region）: " << monitor::handle_manager<commonj::region>::instance().size() << std::endl;
+	fs << "矩形区域（rect）: "     << monitor::handle_manager<commonj::rect>::instance().size() << std::endl;
+	fs << "玩家组（force）: "      << monitor::handle_manager<commonj::force>::instance().size() << std::endl;
+	fs << "---------------------------------------" << std::endl;
+	fs << "当前handle总数:" << ht.size() << std::endl;
 	fs << "---------------------------------------" << std::endl;
 
 	for (auto it = ht.begin(); it != ht.end(); ++it)
 	{
 		handle_info_t& h = it->second;
 
-		fs << base::format("%08X %08X", h.handle, h.reference) << std::endl;
+		fs << base::format("handle: 0x%08X", h.handle) << std::endl;
+		fs << base::format("  引用: %d", h.reference) << std::endl;
 		if (h.object)
 		{
 			uint32_t type = get_object_type(h.object);
-			fs << base::format("  type: %c%c%c%c", ((const char*)&type)[3], ((const char*)&type)[2], ((const char*)&type)[1], ((const char*)&type)[0]) << std::endl;
+			fs << base::format("  对象: %c%c%c%c", ((const char*)&type)[3], ((const char*)&type)[2], ((const char*)&type)[1], ((const char*)&type)[0]) << std::endl;
+		}
+		if (h.type)
+		{
+			fs << base::format("  类型: %s", h.type) << std::endl;
 		}
 		if (h.pos)
 		{
@@ -287,11 +303,11 @@ void create_report(std::fstream& fs)
 			for (op = current_op; op->opcode_type != jass::OPTYPE_FUNCTION; --op)
 			{ }
 
-			fs << base::format("  create: %s, %d", jass::from_stringid(op->arg), current_op - op) << std::endl;
+			fs << base::format("  创建位置: %s, %d", jass::from_stringid(op->arg), current_op - op) << std::endl;
 		}
 		if (!h.gv_reference.empty())
 		{
-			fs << base::format("  global:") << std::endl;
+			fs << base::format("  引用它的全局变量:") << std::endl;
 			for (auto gv = h.gv_reference.begin(); gv != h.gv_reference.end(); ++gv)
 			{
 				fs << base::format("    | %s", gv->c_str()) << std::endl;
@@ -314,7 +330,7 @@ uint32_t __cdecl FakeGetLocalizedHotkey(uint32_t s)
 			if (strcmp(str + LEAK_MONITOR_SIZE, "create_report") == 0)
 			{
 				try {
-					fs::path report = base::path::self().parent_path().parent_path().parent_path() / L"logs" / L"leak_moniter_report.txt";
+					fs::path report = base::path::ydwe(false) / L"logs" / L"leak_moniter_report.txt";
 
 					std::fstream fs(report.c_str(), std::ios::out);
 					if (fs)
@@ -325,7 +341,7 @@ uint32_t __cdecl FakeGetLocalizedHotkey(uint32_t s)
 							using namespace base::warcraft3;
 							uint32_t x = 0;
 							uint32_t y = 0;
-							std::string msg = base::w2u(base::format(L"*й©��ⱨ��*�Ѿ����浽��%s", report.wstring()));
+							std::string msg = base::w2u(base::format(L"*泄漏检测详细报告*已经保存到：%s", report.wstring()));
 							jass::call("DisplayTextToPlayer", jass::call("GetLocalPlayer"), &x, &y, (jass::jstring_t)jass::to_string(msg.c_str()));
 						}
 						return 1;

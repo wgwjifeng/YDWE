@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 #include "libs_runtime.h"
+#include "YDWEVersion.h"
 
 namespace base { namespace warcraft3 { namespace lua_engine { 
 namespace debugger {
@@ -240,7 +241,7 @@ namespace runtime	{
 
 		if (strcmp("version", name) == 0)
 		{
-			lua_pushinteger(L, version);
+			lua_pushfstring(L, "%d.%d.%d.%d", YDWE_VERSION_MAJOR, YDWE_VERSION_MINOR, YDWE_VERSION_REVISED, YDWE_VERSION_BUILD);
 			return 1;
 		}
 		else if (strcmp("error_handle", name) == 0)

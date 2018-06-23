@@ -41,7 +41,9 @@ CC_PutTrigger_PutExternProc(DWORD This, DWORD OutClass, char* name, DWORD cc_gui
     {
       if (*(DWORD*)(nItemClass+0x13C) != 0)
       {
-        CC_PutExternFunc(nItemClass, OutClass, name, i);
+		char NewName[260];
+		BLZSStrPrintf(NewName, 260, "%sFunc%03d", name, i + 1);
+		CC_PutExternFuncEx(nItemClass, OutClass, NewName);
       }
     }
   }
@@ -170,6 +172,55 @@ BOOL _fastcall CC_PutTrigger_HasDisableRegister(DWORD This)
 	return FALSE;
 }
 
+static bool isIdentifier(const char* str)
+{
+	int len = BLZSStrLen(str);
+	if (len <= 0 || str[len - 1] == '_' || isdigit(str[0])) {
+		return false;
+	}
+	for (int i = 0; i < len; ++i) {
+		if (str[i] != '_' && !isalnum(str[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static void _fastcall GetTriggerName_InitTrig(DWORD This, DWORD EDX, char* buf, int len)
+{
+	if (*(DWORD*)(This + 0x18)) {
+		buf[0] = 0;
+		return;
+	}
+	char szTemp[260];
+	ConvertTriggerName((char*)This + 0x4C, szTemp, 260);
+	BLZSStrPrintf(buf, len, "%s%s", "InitTrig_", szTemp);
+	if (!isIdentifier(buf)) {
+		char szTemp2[260];
+		GetWEString("WESTRING_MELEEINITIALIZATION", szTemp2, 260, 0);
+		if (0 == BLZSStrCmpI((char*)This + 0x4C, szTemp2, 0x7FFFFFFFu)) {
+			BLZSStrPrintf(buf, len, "%s%s", "InitTrig_", "MELEE_INITIALIZATION");
+		}
+	}
+}
+
+static void _fastcall GetTriggerVar(DWORD This, DWORD EDX, char* buf, int len)
+{
+	if (*(DWORD*)(This + 0x18)) {
+		buf[0] = 0;
+		return;
+	}
+	char szTemp[260];
+	ConvertTriggerName((char*)This + 0x4C, szTemp, 260);
+	BLZSStrPrintf(buf, len, "%s%s%s", "gg_", "trg_", szTemp);
+	if (!isIdentifier(buf)) {
+		char szTemp2[260];
+		GetWEString("WESTRING_MELEEINITIALIZATION", szTemp2, 260, 0);
+		if (0 == BLZSStrCmpI((char*)This + 0x4C, szTemp2, 0x7FFFFFFFu)) {
+			BLZSStrPrintf(buf, len, "%s%s%s", "gg_", "trg_", "MELEE_INITIALIZATION");
+		}
+	}
+}
 
 void _fastcall 
 CC_PutTrigger_Hook(DWORD This, DWORD EDX, DWORD OutClass)

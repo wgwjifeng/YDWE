@@ -76,9 +76,7 @@ namespace
 		("HostTest",                                Attribute(2))
 		("EnableJassHelper",                        Attribute("ScriptCompiler"))
 		("EnableJassHelperDebug",                   Attribute("ScriptCompiler"))
-		("EnableJassHelperScriptOnly",              Attribute("ScriptCompiler"))
 		("EnableJassHelperOptimization",            Attribute("ScriptCompiler"))
-		("EnableCJass",                             Attribute("ScriptCompiler"))
 		("PJass",                                   Attribute(2))
 		("LaunchRenderingEngine",                   Attribute("MapTest", Attribute::e_ComboBox))
 		("LaunchWindowed",                          Attribute("MapTest"))
@@ -161,7 +159,6 @@ void CMainWindow::InitWindow()
 	}
 
 	m_pEnableJassHelper = m_controls["EnableJassHelper"];
-	m_pEnableCJass      = m_controls["EnableCJass"];
 	m_pLaunchWindowed   = m_controls["LaunchWindowed"];
 	m_pLaunchWideScreenSupport = m_controls["LaunchWideScreenSupport"];
 	m_pLaunchFixedRatioWindowed = m_controls["LaunchFixedRatioWindowed"];
@@ -198,9 +195,7 @@ void CMainWindow::ResetConfig(base::ini::table& table)
 	table["MapTest"]["EnableMapSlk"] = "0";
 	table["ScriptCompiler"]["EnableJassHelper"] = "1";
 	table["ScriptCompiler"]["EnableJassHelperDebug"] = "0";
-	table["ScriptCompiler"]["EnableJassHelperScriptOnly"] = "0";
 	table["ScriptCompiler"]["EnableJassHelperOptimization"] = "1";
-	table["ScriptCompiler"]["EnableCJass"] = "0";
 	table["PJass"]["Option"] = "0";
 	table["ScriptInjection"]["Option"] = "0";
 	table["HostTest"]["Option"] = "0";
@@ -286,7 +281,6 @@ void CMainWindow::ConfigToUI(base::ini::table& table)
 		}
 	}
 
-	m_pm.SendNotify(m_pEnableCJass, DUI_MSGTYPE_SELECTCHANGED);
 	m_pm.SendNotify(m_pEnableJassHelper, DUI_MSGTYPE_SELECTCHANGED);
 }
 
@@ -347,20 +341,10 @@ void CMainWindow::EnableHostTest(bool bEnable)
 	if (!bEnable) ContrlSelected("HostTest_0", true);
 }
 
-void CMainWindow::DisableCJass(bool bEnable)
-{
-	EnableMapSave(bEnable);
-	EnableScriptInjection(bEnable);
-}
-
 void CMainWindow::EnableJassHelper(bool bEnable)
 {
-	ContrlSetEnabled("EnableJassHelperScriptOnly", bEnable);
 	ContrlSetEnabled("EnableJassHelperOptimization", bEnable);
 	ContrlSetEnabled("EnableJassHelperDebug", bEnable);
-	ContrlSetEnabled("EnableCJass", bEnable);
-
-	DisableCJass(!m_pEnableCJass->IsSelected() && bEnable);
 }
 
 void CMainWindow::InitRegistryUI()
@@ -683,11 +667,6 @@ void CMainWindow::Notify(DuiLib::TNotifyUI& msg)
 			{
 				bool bEnable = m_pEnableJassHelper->IsSelected();
 				EnableJassHelper(bEnable);
-			}
-			else if (m_pEnableCJass && m_pEnableCJass == msg.pSender)
-			{
-				bool bEnable = !m_pEnableCJass->IsSelected();
-				DisableCJass(bEnable);
 			}
 			else if (m_pLaunchWindowed && m_pLaunchWindowed == msg.pSender)
 			{

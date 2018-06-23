@@ -61,25 +61,21 @@ local function version()
 end
 
 local function version_build()
-	if fs.exists(path.Build / 'include'/ 'version') then
-		fs.create_directories(path.Development / 'Build' / 'include')
-		local f = assert(io.open((path.Build / 'include'/ 'version'):string(), 'r'))
-		local build = f:read 'a'
-		f:close()
-		local build = tonumber(build) or 0
-		local f = assert(io.open((path.Development / 'Build' / 'include' / 'YDWEVersionBuild.h'):string(), 'w'))
-		f:write(([[
-	#ifndef YDWE_VERSION_BUILD_H_INCLUDED
-	#define YDWE_VERSION_BUILD_H_INCLUDED
+	fs.remove(path.Development / 'Build' / 'include' / 'YDWEVersion.h')
+	fs.remove(path.Development / 'Build' / 'include' / 'YDWEVersionBuild.h')
+    fs.create_directories(path.Development / 'Build' / 'include')
+    local build = tonumber(os.date('%y%m%d')) or 0
+    local f = assert(io.open((path.Development / 'Build' / 'include' / 'YDWEVersionBuild.h'):string(), 'w'))
+    f:write(([[
+#ifndef YDWE_VERSION_BUILD_H_INCLUDED
+#define YDWE_VERSION_BUILD_H_INCLUDED
 
-	#define YDWE_VERSION_BUILD %d
+#define YDWE_VERSION_BUILD %d
 
-	#endif // YDWE_VERSION_BUILD_H_INCLUDED
-		]]):format(build))
-		f:close()
-		return build
-	end
-	return 0
+#endif // YDWE_VERSION_BUILD_H_INCLUDED
+    ]]):format(build))
+    f:close()
+    return build
 end
 
 local major, minor, revised = version()
@@ -101,12 +97,14 @@ end
 
 -- Step.5 复制
 local function copy_directory(from, to, filter)
-    fs.create_directories(to)
 	for fromfile in from:list_directory() do
 		if fs.is_directory(fromfile) then
-			copy_directory(fromfile, to / fromfile:filename(), filter)
+			if fromfile:filename():string() ~= '.vscode' then
+				copy_directory(fromfile, to / fromfile:filename(), filter)
+			end
 		else
 			if (not filter) or filter(fromfile) then
+    			fs.create_directories(to)
                 fs.copy_file(fromfile, to / fromfile:filename(), true)
             end
 		end
@@ -114,7 +112,7 @@ local function copy_directory(from, to, filter)
 end
 
 fs.create_directories(path.Result / 'bin' / 'modules')
-fs.create_directories(path.Result / 'plugin' / 'jasshelper' / 'bin')
+fs.create_directories(path.Result / 'compiler' / 'jasshelper' / 'bin')
 if configuration == 'Release' then
     msvc:copy_crt_dll('x86', path.Result / 'bin')
 end
@@ -124,8 +122,8 @@ fs.copy_file(path.OpenSource / 'StormLib' / 'bin' / 'Win32' / configuration / 'S
 fs.copy_file(path.OpenSource / 'minizip' / 'bin' / configuration / 'minizip.dll', path.Result / 'bin' / 'minizip.dll', true)
 fs.copy_file(path.OpenSource / 'luaffi' / 'bin' / configuration / 'ffi.dll', path.Result / 'bin' / 'modules' / 'ffi.dll', true)
 fs.copy_file(path.OpenSource / 'lpeg' / 'bin' / configuration / 'lpeg.dll', path.Result / 'bin' / 'modules' / 'lpeg.dll', true)
-fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'plugin' / 'jasshelper' / 'sfmpq.dll', true)
-fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'plugin' / 'jasshelper' / 'bin' / 'sfmpq.dll', true)
+fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'compiler' / 'jasshelper' / 'sfmpq.dll', true)
+fs.copy_file(path.OpenSource / 'sfmpq' / 'bin' / configuration / 'sfmpq.dll', path.Result / 'compiler' / 'jasshelper' / 'bin' / 'sfmpq.dll', true)
 copy_directory(path.Development / 'Component', path.Result)
 
 -- Step.7 复制到publish

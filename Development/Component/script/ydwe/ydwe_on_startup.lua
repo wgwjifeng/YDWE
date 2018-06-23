@@ -1,4 +1,3 @@
-local compiler = require "compile.compiler"
 require "w3x2lni.check_object"
 require 'w3x2lni.open_map'
 local uiloader = require "uiloader"
@@ -125,6 +124,12 @@ end
 local function check_war3_version()
 	log.trace("check_war3_version")
 
+    if war3_version.major ~= 1 or war3_version.minor < 20 or war3_version.minor > 27 then
+        log.error("Unsupported War3 %d.%d", war3_version.major, war3_version.minor)
+        gui.error_message(nil, LNG.UNSUPPORTED_WAR3_VERSION, war3_version.major, war3_version.minor)
+        os.exit(true, -1)
+    end
+
 	-- 检查“版本转换器”等造成的game.dll和war3patch.mpq不一致的问题
 	if tonumber(global_config["MapSave"]["Option"]) == 0 then
 		-- 检测魔兽中包含的脚本文件所代表的版本
@@ -152,9 +157,8 @@ function show_credit()
 	we.message_show("      h82258652, shawwwn, Warft_TigerCN, xylign")
 	we.message_show("    Official Site: http://www.ydwe.net")
 	we.message_show("    *** SPECIAL THANKS ***")
-	we.message_show("    JassNewGenPack for ideas at www.wc3c.net")
 	we.message_show("    Vexorian for his jasshelper compiler")
-	we.message_show("    ADOLF and VD for their cjass compiler & TESH")
+	we.message_show("    Ladislav Zezula for his StormLib")
 	we.message_show("    ...")
 	we.message_show("    And all users & supporters, including")
 	we.message_show("    YOU")
@@ -202,9 +206,11 @@ function event.EVENT_WE_START(event_data)
 	log.debug("ydwe version " .. tostring(ydwe_version))
 	log.debug("war3 version " .. tostring(war3_version))
 
-	local gitlog = require 'gitlog'
-	log.debug("commit: " .. gitlog.commit)
-	log.debug("data: " .. gitlog.date)
+	local suc, gitlog = pcall(require, 'gitlog')
+	if suc then
+		log.debug("commit: " .. gitlog.commit)
+		log.debug("data: " .. gitlog.date)
+	end
 	
 	-- 刷新配置数据	
 	global_config_reload()
@@ -219,19 +225,19 @@ function event.EVENT_WE_START(event_data)
 	-- 检测魔兽的版本
 	check_war3_version()	
 
-	-- 载入Patch MPQ
-	load_virtual_mpq("mpq", 14)
+    -- 载入Patch MPQ
     load_virtual_mpq("mpq/war3", 14)
-    load_virtual_mpq("mpq/" .. (require "i18n").get_language(), 14)
+    local lang = (require "i18n").get_language()
+    if lang ~= 'zh-CN' then
+        load_virtual_mpq(lang .. "/mpq", 14)
+    end
+    load_virtual_mpq("zh-CN/mpq", 14)
 
 	-- 加载插件
 	plugin:load_all()
 	
 	-- 初始化UI加载器
 	uiloader()
-
-	-- 初始化编译器
-	compiler:initialize()
 		
 	initialize_reg()
 	initialize_font()

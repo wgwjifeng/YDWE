@@ -51,12 +51,14 @@ namespace NYDWE {
 		}
 
 		EVENT_ID evenetid = (EVENT_ID)lua_tointeger(L, -1);
-		LOGGING_TRACE(lg) << "RegisterEvent id: " << evenetid;
 		if (evenetid >= 0 && evenetid < EVENT_MAXIMUM)
 		{
+			LOGGING_INFO(lg) << "RegisterEvent: " << lua_tostring(L, 2);
 			event_array[evenetid] = std::bind(LuaOnSignal, L, std::placeholders::_1, base::lua::object(L, 3));
+			lua_pushboolean(L, 1);
+			return 1;
 		}
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, 0);
 		return 1;
 	}
 
@@ -125,14 +127,13 @@ int luaopen_event(lua_State* L)
 
 		REGISTER_EID(EVENT_WE_START);
 		REGISTER_EID(EVENT_WE_EXIT);
-		REGISTER_EID(EVENT_PRE_SAVE_MAP);
-		REGISTER_EID(EVENT_SAVE_MAP);
 		REGISTER_EID(EVENT_TEST_MAP);
 		REGISTER_EID(EVENT_INIT_MENU);
 		REGISTER_EID(EVENT_MSS_LOAD);
 		REGISTER_EID(EVENT_WINDOW_MESSAGE);
 		REGISTER_EID(EVENT_DIALOG_MESSAGE);
 		REGISTER_EID(EVENT_NEW_OBJECT_ID);
+		REGISTER_EID(EVENT_NEW_SAVE_MAP);
 #undef REGISTER_EID
 	}
 
