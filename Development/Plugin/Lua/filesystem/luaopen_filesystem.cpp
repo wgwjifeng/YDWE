@@ -28,7 +28,7 @@
 namespace luafs {
 	static int pusherror(lua_State* L, const std::exception& e)
 	{
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 		lua_pushstring(L, base::a2u(e.what()).c_str());
 #else
 		lua_pushstring(L, e.what());
@@ -40,7 +40,7 @@ namespace luafs {
 	{
 		size_t len = 0;
 		const char* buf = luaL_checklstring(L, idx, &len);
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 		return base::u2w(std::string_view(buf, len), base::conv_method::replace | '?');
 #else
 		return fs::path::string_type(buf, len);
@@ -49,7 +49,7 @@ namespace luafs {
 
 	static void lua_pushfsstring(lua_State* L, const fs::path::string_type& str)
 	{
-#if defined(_MSC_VER)
+#if defined(_WIN32) 
 		std::string utf8 = base::w2u(str, base::conv_method::replace | '?');
 		lua_pushlstring(L, utf8.data(), utf8.size());
 #else
@@ -434,12 +434,16 @@ namespace luafs {
 	{
 		FS_TRY;
 		const fs::path& p = path::to(L, 1);
-		fs::file_time_type time = fs::last_write_time(p);
-		lua_pushinteger(L, time.time_since_epoch().count());
-		return 1;
+		if (lua_gettop(L) == 1) {
+			fs::file_time_type time = fs::last_write_time(p);
+			lua_pushinteger(L, time.time_since_epoch().count());
+			return 1;
+		}
+		fs::last_write_time(p, fs::file_time_type() + fs::file_time_type::duration(luaL_checkinteger(L, 2)));
+		return 0;
 		FS_TRY_END;
 	}
-	
+
 	static int procedure_path(lua_State* L)
 	{
 		FS_TRY;
