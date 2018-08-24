@@ -5,6 +5,7 @@
 #include <base/warcraft3/hashtable.h>
 #include <base/warcraft3/jass.h>
 #include <base/warcraft3/jass/opcode.h>
+#include <base/warcraft3/jass/hook.h>
 #include <base/util/console.h>
 #include <base/util/format.h>
 #include <iostream>
@@ -76,7 +77,7 @@ namespace base { namespace warcraft3 { namespace jdebug {
 	struct jass::opcode* show_pos(struct jass::opcode* current_op)
 	{
 		struct jass::opcode *op;
-		for (op = current_op; op->opcode_type != jass::OPTYPE_FUNCTION; --op)
+		for (op = current_op; op->op != jass::OPTYPE_FUNCTION; --op)
 		{ }
 
 		std::cout << "    [" << jass::from_stringid(op->arg) << ":" << current_op  - op << "]" << std::endl;
@@ -125,13 +126,13 @@ namespace base { namespace warcraft3 { namespace jdebug {
 		case 6:
 		{
 			jass::opcode* op = current_opcode(vm);
-			if (op->opcode_type == jass::OPTYPE_PUSH)
+			if (op->op == jass::OPTYPE_PUSH)
 			{
 				show_error(vm, base::format("栈 [0x02X] 没有初始化就使用", op->r3));
 			}
 			else
 			{
-				assert(op->opcode_type == jass::OPTYPE_GETVAR);
+				assert(op->op == jass::OPTYPE_MOVRV);
 				show_error(vm, base::format("变量 '%s' 没有初始化就使用", jass::from_stringid(op->arg)));
 			}
 			break;
@@ -146,8 +147,20 @@ namespace base { namespace warcraft3 { namespace jdebug {
 		return result;
 	}
 
+	jass::jboolean_t __cdecl EXDumpOpcode(jass::jstring_t filename) 
+	{
+		jass::opcode* op = (jass::opcode *)base::warcraft3::get_current_jass_pos();
+		if (op) {
+			for (; op->op > jass::OPTYPE_MINLIMIT && op->op < jass::OPTYPE_MAXLIMIT; --op) {
+			}
+			return jass::dump_opcode(op, base::u2w(jass::from_string(filename), base::conv_method::skip | '?').c_str());
+		}
+		return false;
+	}
+
 	bool initialize()
 	{
+		base::warcraft3::jass::japi_add((uintptr_t)EXDumpOpcode, "EXDumpOpcode", "(S)B");
 		real_jass_vmmain = search_jass_vmmain();
 		return base::hook::install(&real_jass_vmmain, (uintptr_t)fake_jass_vmmain);
 	}
